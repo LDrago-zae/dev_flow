@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/app_text_styles.dart';
 import '../../../core/utils/animations/app_animations.dart';
 import '../get_started/get_started.dart';
-import '../../widgets/onboarding/onboarding_page_content.dart';
-import '../../widgets/onboarding/onboarding_buttons.dart';
-import '../../widgets/onboarding/page_indicator.dart';
+import '../../widgets/onboarding/onboarding_background.dart';
+import '../../widgets/onboarding/onboarding_bottom_sheet.dart';
 
 class Onboarding extends StatefulWidget {
   const Onboarding({super.key});
@@ -30,7 +26,6 @@ class _OnboardingState extends State<Onboarding> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    // Initial animation controller
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
@@ -39,7 +34,6 @@ class _OnboardingState extends State<Onboarding> with TickerProviderStateMixin {
     _imageSlideAnimation = AppAnimations.fadeInUp(_animationController, offset: 0.3);
     _imageFadeAnimation = AppAnimations.fadeIn(_animationController);
 
-    // Page transition animation controller
     _pageTransitionController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -48,9 +42,8 @@ class _OnboardingState extends State<Onboarding> with TickerProviderStateMixin {
     _pageImageSlideAnimation = AppAnimations.fadeInUp(_pageTransitionController, offset: 0.2);
     _pageImageFadeAnimation = AppAnimations.fadeIn(_pageTransitionController);
 
-    // Start the initial animation
     _animationController.forward();
-    _pageTransitionController.value = 1.0; // Start at fully visible for first page
+    _pageTransitionController.value = 1.0;
   }
 
   @override
@@ -68,7 +61,6 @@ class _OnboardingState extends State<Onboarding> with TickerProviderStateMixin {
         curve: Curves.easeInOut,
       );
     } else {
-      // Navigate to Get Started screen
       Get.off(() => const GetStarted());
     }
   }
@@ -77,148 +69,51 @@ class _OnboardingState extends State<Onboarding> with TickerProviderStateMixin {
     Get.off(() => const GetStarted());
   }
 
-  // Get the current image based on page
   String get _currentImage {
     switch (_currentPage.value) {
       case 0:
-        return 'assets/images/Illustration2.png'; // First page image
+        return 'assets/images/Illustration2.png';
       case 1:
-        return 'assets/images/Illustration3.png'; // Second page image
+        return 'assets/images/Illustration3.png';
       case 2:
-        return 'assets/images/Illustration4.png'; // Third page image
+        return 'assets/images/Illustration4.png';
       default:
         return 'assets/images/Illustration2.png';
     }
   }
 
+  void _onPageChanged(int index) {
+    _currentPage.value = index;
+    _pageTransitionController.reset();
+    _pageTransitionController.forward();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: LightThemeColors.primary600, // Blue background
       body: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: LightThemeColors.primary600,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SlideTransition(
-                      position: _imageSlideAnimation,
-                      child: FadeTransition(
-                        opacity: _imageFadeAnimation,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 300.0),
-                          child: SlideTransition(
-                            position: _pageImageSlideAnimation,
-                            child: FadeTransition(
-                              opacity: _pageImageFadeAnimation,
-                              child: Obx(
-                                    () => Image.asset(
-                                  _currentImage,
-                                  width: 350,
-                                  height: 350,
-                                  key: ValueKey(_currentPage.value), // Force rebuild on page change
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+        children: [
+          Obx(
+                () => OnboardingBackground(
+              imageSlideAnimation: _imageSlideAnimation,
+              imageFadeAnimation: _imageFadeAnimation,
+              pageImageSlideAnimation: _pageImageSlideAnimation,
+              pageImageFadeAnimation: _pageImageFadeAnimation,
+              currentImage: _currentImage,
+              currentPage: _currentPage.value,
             ),
-
-            // Non-draggable bottom sheet
-            DraggableScrollableSheet(
-              initialChildSize: 0.5,
-              minChildSize: 0.5,
-              maxChildSize: 0.5,
-              shouldCloseOnMinExtent: false,
-              builder: (BuildContext context, ScrollController scrollController) {
-                return Container(
-                  decoration: const BoxDecoration(
-                    color: DarkThemeColors.dark,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        // Handle indicator
-                        Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: DarkThemeColors.border,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-
-                        // PageView with content
-                        Expanded(
-                          child: PageView(
-                            controller: _pageController,
-                            onPageChanged: (index) {
-                              _currentPage.value = index;
-                              // Trigger fade-up animation on page change
-                              _pageTransitionController.reset();
-                              _pageTransitionController.forward();
-                            },
-                            children: const [
-                              // First page
-                              OnboardingPageContent(
-                                title: 'Effortless Task Management',
-                                description: 'Organize your tasks efficiently with our intuitive interface designed for developers.',
-                              ),
-                              // Second page
-                              OnboardingPageContent(
-                                title: 'Boost Your Productivity',
-                                description: 'Track your progress and stay focused with powerful tools built for your workflow.',
-                              ),
-                              // Third page
-                              OnboardingPageContent(
-                                title: 'Collaborate Seamlessly',
-                                description: 'Work together with your team and share updates in real-time.',
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Page indicator
-                        OnboardingPageIndicator(
-                          controller: _pageController,
-                          count: _totalPages,
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Action buttons
-                        Obx(
-                              () => OnboardingButtons(
-                            currentPage: _currentPage.value,
-                            totalPages: _totalPages,
-                            onNext: _nextPage,
-                            onSkip: _skipToGetStarted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+          ),
+          Obx(
+                () => OnboardingBottomSheet(
+              pageController: _pageController,
+              totalPages: _totalPages,
+              currentPage: _currentPage.value,
+              onNext: _nextPage,
+              onSkip: _skipToGetStarted,
+              onPageChanged: _onPageChanged,
             ),
-          ]
+          ),
+        ],
       ),
     );
   }

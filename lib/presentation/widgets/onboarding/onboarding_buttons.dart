@@ -33,7 +33,7 @@ class OnboardingButtons extends StatelessWidget {
             ),
           ),
           child: Text(
-            currentPage == totalPages - 1 ? 'Get Started' : 'Next',
+            currentPage == totalPages - 1 ? 'Next' : 'Next',
             style: AppTextStyles.bodyLarge.copyWith(
               fontWeight: FontWeight.w600,
               color: Colors.white,
