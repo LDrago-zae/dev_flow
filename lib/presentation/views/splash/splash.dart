@@ -5,6 +5,7 @@ import '../../../core/utils/app_text_styles.dart';
 import 'package:lottie/lottie.dart';
 import 'package:get/get.dart';
 import '../onboarding/onboarding.dart';
+import '../../bindings/onboarding/onboarding_binding.dart';
 
 class Splash extends StatefulWidget {
   const Splash({super.key});
@@ -28,6 +29,7 @@ class _SplashState extends State<Splash> with TickerProviderStateMixin {
       if (status == AnimationStatus.completed) {
         // Navigate to onboarding after animation completes
         Future.delayed(const Duration(milliseconds: 500), () {
+          OnboardingBinding().dependencies();
           Get.off(() => const Onboarding());
         });
       }
