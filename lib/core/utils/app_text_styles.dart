@@ -34,6 +34,12 @@ class AppTextStyles {
     color: Colors.white70,
   );
 
+  static TextStyle bodySmall = GoogleFonts.poppins(
+    fontSize: 12,
+    fontWeight: FontWeight.normal,
+    color: Colors.white70,
+  );
+
   // Customizable methods for flexibility
   static TextStyle customPoppins({
     double? fontSize,
