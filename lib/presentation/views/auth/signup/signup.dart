@@ -37,6 +37,16 @@ class _LoginState extends State<Login> {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: DarkThemeColors.primary100, width: 1.5),
       ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: DarkThemeColors.error, width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: DarkThemeColors.error, width: 1.5),
+      ),
+      errorStyle: AppTextStyles.bodySmall.copyWith(color: DarkThemeColors.error),
+      errorMaxLines: 3,
     );
   }
 
