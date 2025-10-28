@@ -139,7 +139,7 @@ class _GetStartedState extends State<GetStarted> with SingleTickerProviderStateM
                         ElevatedButton(
                           onPressed: () {
                             // Navigate to main app
-                            Get.offAll(() => const Login());
+                            Get.offAll(() => const Signup());
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: LightThemeColors.primary600,
