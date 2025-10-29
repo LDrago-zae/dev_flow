@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_text_styles.dart';
+import '../signin/signin.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -70,8 +73,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            // Spacer(),
-            const SizedBox(height: 135),
+            Spacer(),
+            // const SizedBox(height: 135),
             // Centered Continue Button
             SizedBox(
               width: 320,
@@ -84,7 +87,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  Get.offAll(() => const SignIn());
+                },
                 child: Text(
                   'Go to Login',
                   style: AppTextStyles.bodyMedium.copyWith(
