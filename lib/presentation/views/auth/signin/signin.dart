@@ -1,4 +1,5 @@
 import 'package:dev_flow/core/utils/string_extensions.dart';
+import 'package:dev_flow/presentation/views/auth/signin/signin_verification.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -224,6 +225,7 @@ class _SignInState extends State<SignIn> {
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
                         // TODO: Implement sign in logic
+                        Get.to(() => const SigninVerification());
                       }
                     },
                     child: Text(
