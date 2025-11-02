@@ -24,7 +24,7 @@ class FilterChipButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark ? DarkThemeColors.primary100 : LightThemeColors.primary300)
-              : (isDark ? DarkThemeColors.surface : LightThemeColors.surface),
+              : DarkThemeColors.background,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected

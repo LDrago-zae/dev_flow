@@ -22,10 +22,10 @@ class CustomSearchBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isDark ? DarkThemeColors.surface : LightThemeColors.surface,
+          color: DarkThemeColors.background,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDark ? DarkThemeColors.border : LightThemeColors.border,
+            color: DarkThemeColors.surface,
           ),
         ),
         child: Row(

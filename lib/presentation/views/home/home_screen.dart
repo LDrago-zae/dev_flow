@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_nav_bar/google_nav_bar.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../widgets/custom_search_bar.dart';
 import '../../widgets/filter_chip_button.dart';
@@ -21,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? DarkThemeColors.background : LightThemeColors.background,
+      backgroundColor: DarkThemeColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -229,49 +230,57 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBottomNavigationBar(bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? DarkThemeColors.surface : LightThemeColors.surface,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        color: DarkThemeColors.background,
         border: Border(
           top: BorderSide(
-            color: isDark ? DarkThemeColors.border : LightThemeColors.border,
+            color: DarkThemeColors.surface,
+            width: 1,
           ),
         ),
       ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedBottomNavIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedBottomNavIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
-        selectedItemColor: isDark ? DarkThemeColors.primary100 : LightThemeColors.primary300,
-        unselectedItemColor: isDark ? DarkThemeColors.textSecondary : LightThemeColors.textSecondary,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        elevation: 0,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 3),
+          child: GNav(curve: Curves.easeInOut,
+            selectedIndex: _selectedBottomNavIndex,
+            onTabChange: (index) {
+              setState(() {
+                _selectedBottomNavIndex = index;
+              });
+            },
+            gap: 8,
+            activeColor: isDark ? DarkThemeColors.primary100 : LightThemeColors.primary300,
+            iconSize: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            duration: const Duration(milliseconds: 400),
+            tabBackgroundColor: isDark
+                ? DarkThemeColors.primary100.withOpacity(0.1)
+                : LightThemeColors.primary300.withOpacity(0.1),
+            color: isDark ? DarkThemeColors.textSecondary : LightThemeColors.textSecondary,
+            tabs: const [
+              GButton(
+                icon: Icons.home_outlined,
+                text: 'Home',
+              ),
+              GButton(
+                icon: Icons.show_chart_outlined,
+                text: 'Activity',
+              ),
+              GButton(
+                icon: Icons.calendar_today_outlined,
+                text: 'Timeline',
+              ),
+              GButton(
+                icon: Icons.person_outline,
+                text: 'Profile',
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart_outlined),
-            activeIcon: Icon(Icons.show_chart),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_outlined),
-            activeIcon: Icon(Icons.calendar_today),
-            label: 'Timeline',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        ),
       ),
     );
   }
