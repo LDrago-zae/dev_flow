@@ -3,6 +3,7 @@ import '../presentation/bindings/onboarding/login/login_binding.dart';
 import '../presentation/bindings/onboarding/onboarding_binding.dart';
 import '../presentation/views/auth/otp/verification_screen.dart';
 import '../presentation/views/auth/signup/signup.dart';
+import '../presentation/views/home/home_screen.dart';
 import '../presentation/views/onboarding/onboarding.dart';
 import '../presentation/views/splash/splash.dart';
 
@@ -12,6 +13,7 @@ class AppRoutes {
   static const String verificationScreen = '/verification-screen';
   static const String signup = '/signup';
   static const String splash = '/splash';
+  static const String home = '/home';
 
   static final routes = [
     GetPage(
@@ -31,6 +33,10 @@ class AppRoutes {
     GetPage(
       name: splash,
       page: () => const Splash(),
+    ),
+    GetPage(
+      name: home,
+      page: () => const HomeScreen(),
     ),
   ];
 }
