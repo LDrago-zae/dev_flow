@@ -27,10 +27,10 @@ class TaskItem extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? DarkThemeColors.surface : LightThemeColors.surface,
+          color: DarkThemeColors.background,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDark ? DarkThemeColors.border : LightThemeColors.border,
+            color: DarkThemeColors.border,
           ),
         ),
         child: Row(

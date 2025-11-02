@@ -26,7 +26,7 @@ class ProjectCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
