@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_text_styles.dart';
+import '../../../routes/app_routes.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -36,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: DarkThemeColors.textSecondary,
       ),
       filled: true,
-      fillColor: DarkThemeColors.dark,
+      fillColor: DarkThemeColors.background,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -289,6 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: () {
                       if (_formKey.currentState?.validate() ?? false) {
                         // TODO: Handle profile submission
+                        Get.toNamed(AppRoutes.home);
                       }
                     },
                     child: Text(
