@@ -6,6 +6,7 @@ class ProjectCard extends StatelessWidget {
   final String deadline;
   final double progress;
   final Color cardColor;
+  final String category;
   final VoidCallback? onTap;
 
   const ProjectCard({
@@ -14,6 +15,7 @@ class ProjectCard extends StatelessWidget {
     required this.description,
     required this.deadline,
     required this.progress,
+    required this.category,
     this.cardColor = const Color(0xFF0062FF),
     this.onTap,
   });
@@ -40,9 +42,9 @@ class ProjectCard extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
-                    'UI/UX',
-                    style: TextStyle(
+                  child: Text(
+                    category,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,

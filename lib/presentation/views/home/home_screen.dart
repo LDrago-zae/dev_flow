@@ -6,6 +6,24 @@ import '../../widgets/filter_chip_button.dart';
 import '../../widgets/project_card.dart';
 import '../../widgets/task_item.dart';
 
+class Project {
+  final String title;
+  final String description;
+  final String deadline;
+  final double progress;
+  final Color cardColor;
+  final String category;
+
+  Project({
+    required this.title,
+    required this.description,
+    required this.deadline,
+    required this.progress,
+    required this.cardColor,
+    required this.category,
+  });
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -16,6 +34,17 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedBottomNavIndex = 0;
   String _selectedFilter = 'All Task';
+  final List<Project> _projects = [
+    Project(
+      title: 'E-commerce Platform Redesign - NovaShop',
+      description:
+          'Enhancing the user interface design of NovaShop, an e-commerce platform, for a more...',
+      deadline: 'January 30, 2025',
+      progress: 0.65,
+      cardColor: const Color(0xFF0062FF),
+      category: 'UI/UX',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +52,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: DarkThemeColors.background,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddProjectBottomSheet(context),
+        backgroundColor: DarkThemeColors.primary100,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -35,24 +69,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 24),
 
                 // Search Bar
-                const CustomSearchBar(
-                  hintText: 'Search your project',
-                ),
+                const CustomSearchBar(hintText: 'Search your project'),
                 const SizedBox(height: 24),
 
                 // Your Project Section
                 _buildSectionHeader('Your Project', 'See All', isDark),
                 const SizedBox(height: 16),
-                ProjectCard(
-                  title: 'E-commerce Platform Redesign - NovaShop',
-                  description: 'Enhancing the user interface design of NovaShop, an e-commerce platform, for a more...',
-                  deadline: 'January 30, 2025',
-                  progress: 0.65,
-                  cardColor: const Color(0xFF0062FF),
-                  onTap: () {
-                    // Navigate to project details
-                  },
-                ),
+                _buildProjectsList(),
                 const SizedBox(height: 24),
 
                 // To Do List Section
@@ -84,7 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               'Welcome back, Jenny',
               style: TextStyle(
-                color: isDark ? DarkThemeColors.textSecondary : LightThemeColors.textSecondary,
+                color: isDark
+                    ? DarkThemeColors.textSecondary
+                    : LightThemeColors.textSecondary,
                 fontSize: 14,
               ),
             ),
@@ -92,7 +117,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               'Ready to conquer your day?',
               style: TextStyle(
-                color: isDark ? DarkThemeColors.textPrimary : LightThemeColors.textPrimary,
+                color: isDark
+                    ? DarkThemeColors.textPrimary
+                    : LightThemeColors.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -125,7 +152,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Text(
           title,
           style: TextStyle(
-            color: isDark ? DarkThemeColors.textPrimary : LightThemeColors.textPrimary,
+            color: isDark
+                ? DarkThemeColors.textPrimary
+                : LightThemeColors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -133,7 +162,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Text(
           actionText,
           style: TextStyle(
-            color: isDark ? DarkThemeColors.primary100 : LightThemeColors.primary300,
+            color: isDark
+                ? DarkThemeColors.primary100
+                : LightThemeColors.primary300,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -227,6 +258,372 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildProjectsList() {
+    if (_projects.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: DarkThemeColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: DarkThemeColors.border),
+        ),
+        child: Center(
+          child: Text(
+            'No projects yet. Tap the + button to add one!',
+            style: TextStyle(
+              color: DarkThemeColors.textSecondary,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: _projects.map((project) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: ProjectCard(
+            title: project.title,
+            description: project.description,
+            deadline: project.deadline,
+            progress: project.progress,
+            cardColor: project.cardColor,
+            category: project.category,
+            onTap: () {
+              // Navigate to project details
+            },
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showAddProjectBottomSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final deadlineController = TextEditingController();
+    final categoryController = TextEditingController();
+    double progress = 0.0;
+    Color selectedColor = const Color(0xFF0062FF);
+
+    final List<Color> colorOptions = [
+      const Color(0xFF0062FF),
+      const Color(0xFF40C4AA),
+      const Color(0xFFFFBE4C),
+      const Color(0xFFDF1C41),
+      const Color(0xFF3381FF),
+      const Color(0xFF66A1FF),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          decoration: BoxDecoration(
+            color: DarkThemeColors.surface,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: DarkThemeColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Title
+                Text(
+                  'Add New Project',
+                  style: TextStyle(
+                    color: DarkThemeColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Project Title
+                _buildLabel('Project Title'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: titleController,
+                  hint: 'Enter project title',
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 20),
+
+                // Category
+                _buildLabel('Category'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: categoryController,
+                  hint: 'e.g., UI/UX, Development, Marketing',
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 20),
+
+                // Description
+                _buildLabel('Description'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: descriptionController,
+                  hint: 'Enter project description',
+                  isDark: isDark,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 20),
+
+                // Deadline
+                _buildLabel('Deadline'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: deadlineController,
+                  hint: 'Select deadline',
+                  isDark: isDark,
+                  readOnly: true,
+                  onTap: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(
+                        const Duration(days: 365 * 2),
+                      ),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: ColorScheme.dark(
+                              primary: DarkThemeColors.primary100,
+                              onPrimary: Colors.white,
+                              surface: DarkThemeColors.surface,
+                              onSurface: DarkThemeColors.textPrimary,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      deadlineController.text = _formatDate(picked);
+                    }
+                  },
+                  suffixIcon: Icon(
+                    Icons.calendar_today_outlined,
+                    color: DarkThemeColors.icon,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Progress
+                _buildLabel('Progress: ${(progress * 100).toInt()}%'),
+                const SizedBox(height: 8),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: DarkThemeColors.primary100,
+                    inactiveTrackColor: DarkThemeColors.border,
+                    thumbColor: DarkThemeColors.primary100,
+                    overlayColor: DarkThemeColors.primary100.withOpacity(0.2),
+                  ),
+                  child: Slider(
+                    value: progress,
+                    onChanged: (value) {
+                      setModalState(() {
+                        progress = value;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Color Selection
+                _buildLabel('Card Color'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  children: colorOptions.map((color) {
+                    final isSelected = selectedColor == color;
+                    return GestureDetector(
+                      onTap: () {
+                        setModalState(() {
+                          selectedColor = color;
+                        });
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? DarkThemeColors.primary100
+                                : DarkThemeColors.border,
+                            width: isSelected ? 3 : 1,
+                          ),
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 20,
+                              )
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 32),
+
+                // Create Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (titleController.text.isNotEmpty &&
+                          descriptionController.text.isNotEmpty &&
+                          deadlineController.text.isNotEmpty &&
+                          categoryController.text.isNotEmpty) {
+                        setState(() {
+                          _projects.add(
+                            Project(
+                              title: titleController.text,
+                              description: descriptionController.text,
+                              deadline: deadlineController.text,
+                              progress: progress,
+                              cardColor: selectedColor,
+                              category: categoryController.text,
+                            ),
+                          );
+                        });
+                        Navigator.pop(context);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Please fill all fields'),
+                            backgroundColor: DarkThemeColors.error,
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DarkThemeColors.primary100,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Create Project',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  Widget _buildLabel(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        color: DarkThemeColors.textSecondary,
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required bool isDark,
+    int maxLines = 1,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    Widget? suffixIcon,
+  }) {
+    return TextField(
+      controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
+      maxLines: maxLines,
+      style: TextStyle(color: DarkThemeColors.textPrimary, fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: DarkThemeColors.textSecondary,
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: DarkThemeColors.background,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: DarkThemeColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: DarkThemeColors.primary100, width: 1.5),
+        ),
+        suffixIcon: suffixIcon,
+      ),
+    );
+  }
+
   Widget _buildBottomNavigationBar(bool isDark) {
     return Container(
       decoration: BoxDecoration(
@@ -236,16 +633,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         color: DarkThemeColors.background,
         border: Border(
-          top: BorderSide(
-            color: DarkThemeColors.surface,
-            width: 1,
-          ),
+          top: BorderSide(color: DarkThemeColors.surface, width: 1),
         ),
       ),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 3),
-          child: GNav(curve: Curves.easeInOut,
+          child: GNav(
+            curve: Curves.easeInOut,
             selectedIndex: _selectedBottomNavIndex,
             onTabChange: (index) {
               setState(() {
@@ -253,31 +648,23 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
             gap: 8,
-            activeColor: isDark ? DarkThemeColors.primary100 : LightThemeColors.primary300,
+            activeColor: isDark
+                ? DarkThemeColors.primary100
+                : LightThemeColors.primary300,
             iconSize: 24,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             duration: const Duration(milliseconds: 400),
             tabBackgroundColor: isDark
                 ? DarkThemeColors.primary100.withOpacity(0.1)
                 : LightThemeColors.primary300.withOpacity(0.1),
-            color: isDark ? DarkThemeColors.textSecondary : LightThemeColors.textSecondary,
+            color: isDark
+                ? DarkThemeColors.textSecondary
+                : LightThemeColors.textSecondary,
             tabs: const [
-              GButton(
-                icon: Icons.home_outlined,
-                text: 'Home',
-              ),
-              GButton(
-                icon: Icons.show_chart_outlined,
-                text: 'Activity',
-              ),
-              GButton(
-                icon: Icons.calendar_today_outlined,
-                text: 'Timeline',
-              ),
-              GButton(
-                icon: Icons.person_outline,
-                text: 'Profile',
-              ),
+              GButton(icon: Icons.home_outlined, text: 'Home'),
+              GButton(icon: Icons.show_chart_outlined, text: 'Activity'),
+              GButton(icon: Icons.calendar_today_outlined, text: 'Timeline'),
+              GButton(icon: Icons.person_outline, text: 'Profile'),
             ],
           ),
         ),
@@ -285,4 +672,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
