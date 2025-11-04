@@ -1,28 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../widgets/custom_search_bar.dart';
-import '../../widgets/filter_chip_button.dart';
-import '../../widgets/project_card.dart';
-import '../../widgets/task_item.dart';
-
-class Project {
-  final String title;
-  final String description;
-  final String deadline;
-  final double progress;
-  final Color cardColor;
-  final String category;
-
-  Project({
-    required this.title,
-    required this.description,
-    required this.deadline,
-    required this.progress,
-    required this.cardColor,
-    required this.category,
-  });
-}
+import 'package:dev_flow/core/constants/app_colors.dart';
+import 'package:dev_flow/data/models/project_model.dart';
+import 'package:dev_flow/presentation/widgets/custom_search_bar.dart';
+import 'package:dev_flow/presentation/widgets/filter_chip_button.dart';
+import 'package:dev_flow/presentation/widgets/project_card.dart';
+import 'package:dev_flow/presentation/widgets/task_item.dart';
+import 'package:dev_flow/presentation/views/project_details/project_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -281,7 +265,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Column(
-      children: _projects.map((project) {
+      children: _projects.asMap().entries.map((entry) {
+        final index = entry.key;
+        final project = entry.value;
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: ProjectCard(
@@ -291,8 +277,20 @@ class _HomeScreenState extends State<HomeScreen> {
             progress: project.progress,
             cardColor: project.cardColor,
             category: project.category,
-            onTap: () {
-              // Navigate to project details
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProjectDetailsScreen(
+                    project: project,
+                    onUpdate: (updated) {
+                      setState(() {
+                        _projects[index] = updated;
+                      });
+                    },
+                  ),
+                ),
+              );
             },
           ),
         );
