@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
+import 'package:dev_flow/core/utils/app_text_styles.dart';
 import 'package:dev_flow/data/models/project_model.dart';
+import 'package:dev_flow/data/models/task_model.dart';
 
 class ProjectDetailsScreen extends StatefulWidget {
   final Project project;
@@ -17,33 +20,30 @@ class ProjectDetailsScreen extends StatefulWidget {
 }
 
 class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
-  late Project _editedProject;
-  bool _isEditMode = false;
-
-  late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
-  late TextEditingController _deadlineController;
-  late TextEditingController _categoryController;
+  late Project _project;
+  String _selectedTab = 'All Task';
+  late List<Task> _filteredTasks;
 
   @override
   void initState() {
     super.initState();
-    _editedProject = widget.project;
-    _titleController = TextEditingController(text: widget.project.title);
-    _descriptionController = TextEditingController(
-      text: widget.project.description,
-    );
-    _deadlineController = TextEditingController(text: widget.project.deadline);
-    _categoryController = TextEditingController(text: widget.project.category);
+    _project = widget.project;
+    _updateFilteredTasks();
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _deadlineController.dispose();
-    _categoryController.dispose();
-    super.dispose();
+  void _updateFilteredTasks() {
+    setState(() {
+      switch (_selectedTab) {
+        case 'Ongoing':
+          _filteredTasks = _project.tasks.where((task) => !task.isCompleted).toList();
+          break;
+        case 'Completed':
+          _filteredTasks = _project.tasks.where((task) => task.isCompleted).toList();
+          break;
+        default:
+          _filteredTasks = _project.tasks;
+      }
+    });
   }
 
   String _formatDate(DateTime date) {
@@ -64,470 +64,561 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  DateTime? _parseDate(String dateString) {
-    try {
-      const months = {
-        'January': 1,
-        'February': 2,
-        'March': 3,
-        'April': 4,
-        'May': 5,
-        'June': 6,
-        'July': 7,
-        'August': 8,
-        'September': 9,
-        'October': 10,
-        'November': 11,
-        'December': 12,
-      };
 
-      final parts = dateString.split(' ');
-      if (parts.length == 3) {
-        final month = months[parts[0]];
-        final day = int.tryParse(parts[1].replaceAll(',', ''));
-        final year = int.tryParse(parts[2]);
-        if (month != null && day != null && year != null) {
-          return DateTime(year, month, day);
-        }
-      }
-    } catch (e) {
-      return null;
+  Color _getPriorityColor(ProjectPriority priority) {
+    switch (priority) {
+      case ProjectPriority.high:
+        return Colors.red;
+      case ProjectPriority.medium:
+        return Colors.orange;
+      case ProjectPriority.low:
+        return Colors.green;
     }
-    return null;
   }
 
-  void _toggleEditMode() {
+  String _getPriorityText(ProjectPriority priority) {
+    switch (priority) {
+      case ProjectPriority.high:
+        return 'High';
+      case ProjectPriority.medium:
+        return 'Medium';
+      case ProjectPriority.low:
+        return 'Low';
+    }
+  }
+
+  Color _getStatusColor(ProjectStatus status) {
+    switch (status) {
+      case ProjectStatus.ongoing:
+        return Colors.green;
+      case ProjectStatus.completed:
+        return Colors.blue;
+      case ProjectStatus.onHold:
+        return Colors.orange;
+    }
+  }
+
+  String _getStatusText(ProjectStatus status) {
+    switch (status) {
+      case ProjectStatus.ongoing:
+        return 'Ongoing';
+      case ProjectStatus.completed:
+        return 'Completed';
+      case ProjectStatus.onHold:
+        return 'On Hold';
+    }
+  }
+
+  void _toggleTaskCompletion(Task task) {
     setState(() {
-      if (_isEditMode) {
-        // Save changes
-        _editedProject = _editedProject.copyWith(
-          title: _titleController.text,
-          description: _descriptionController.text,
-          deadline: _deadlineController.text,
-          category: _categoryController.text,
-        );
-        widget.onUpdate(_editedProject);
-      }
-      _isEditMode = !_isEditMode;
-    });
-  }
+      final updatedTasks = _project.tasks.map((t) {
+        if (t.id == task.id) {
+          return t.copyWith(isCompleted: !t.isCompleted);
+        }
+        return t;
+      }).toList();
 
-  void _pickDate() async {
-    final currentDate = _parseDate(_deadlineController.text) ?? DateTime.now();
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: currentDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: DarkThemeColors.primary100,
-              onPrimary: Colors.white,
-              surface: DarkThemeColors.surface,
-              onSurface: DarkThemeColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        _deadlineController.text = _formatDate(picked);
-      });
-    }
+      final completedCount = updatedTasks.where((t) => t.isCompleted).length;
+      final newProgress = updatedTasks.isEmpty ? 0.0 : completedCount / updatedTasks.length;
+
+      _project = _project.copyWith(
+        tasks: updatedTasks,
+        progress: newProgress,
+      );
+      
+      widget.onUpdate(_project);
+      _updateFilteredTasks();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       backgroundColor: DarkThemeColors.background,
-      appBar: AppBar(
-        backgroundColor: DarkThemeColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: DarkThemeColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          if (_isEditMode)
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _isEditMode = false;
-                  // Reset to original values
-                  _titleController.text = widget.project.title;
-                  _descriptionController.text = widget.project.description;
-                  _deadlineController.text = widget.project.deadline;
-                  _categoryController.text = widget.project.category;
-                  _editedProject = widget.project;
-                });
-              },
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: DarkThemeColors.textSecondary),
-              ),
-            ),
-          IconButton(
-            icon: Icon(
-              _isEditMode ? Icons.check : Icons.edit,
-              color: DarkThemeColors.primary100,
-            ),
-            onPressed: _toggleEditMode,
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Category Badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: _editedProject.cardColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _editedProject.cardColor.withOpacity(0.5),
-                  ),
-                ),
-                child: Text(
-                  _editedProject.category,
-                  style: TextStyle(
-                    color: _editedProject.cardColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Title
-              if (!_isEditMode)
-                Text(
-                  _editedProject.title,
-                  style: TextStyle(
-                    color: DarkThemeColors.textPrimary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              else
-                Column(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // App Bar
+            _buildAppBar(),
+            
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Project Title'),
-                    const SizedBox(height: 8),
-                    _buildTextField(
-                      controller: _titleController,
-                      hint: 'Enter project title',
-                      isDark: isDark,
+                    // Project Image Header
+                    _buildProjectImage(),
+                    
+                    // Project Info Section
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+                          
+                          // Created Date
+                          Text(
+                            '${_formatDate(_project.createdDate)} (created)',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: DarkThemeColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // Title
+                          Text(
+                            _project.title,
+                            style: AppTextStyles.headlineSmall.copyWith(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: DarkThemeColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // Description
+                          Text(
+                            _project.description,
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: DarkThemeColors.textSecondary,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          
+                          // Status and Deadline Row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Status',
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                        color: DarkThemeColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _getStatusColor(_project.status).withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: _getStatusColor(_project.status).withOpacity(0.5),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _getStatusText(_project.status),
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: _getStatusColor(_project.status),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Deadline',
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                        color: DarkThemeColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.access_time,
+                                          size: 16,
+                                          color: DarkThemeColors.textSecondary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _project.deadline,
+                                          style: AppTextStyles.bodyMedium.copyWith(
+                                            color: DarkThemeColors.textPrimary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Progress Section
+                          _buildProgressSection(),
+                          const SizedBox(height: 24),
+                          
+                          // Task Tabs
+                          _buildTaskTabs(),
+                          const SizedBox(height: 16),
+                          
+                          // Task List
+                          _buildTaskList(),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              const SizedBox(height: 24),
-
-              // Progress Section with Circular Progress
-              _buildProgressSection(),
-              const SizedBox(height: 32),
-
-              // Description Section
-              _buildLabel('Description'),
-              const SizedBox(height: 8),
-              if (!_isEditMode)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: DarkThemeColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: DarkThemeColors.border),
-                  ),
-                  child: Text(
-                    _editedProject.description,
-                    style: TextStyle(
-                      color: DarkThemeColors.textPrimary,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-                )
-              else
-                _buildTextField(
-                  controller: _descriptionController,
-                  hint: 'Enter project description',
-                  isDark: isDark,
-                  maxLines: 5,
-                ),
-              const SizedBox(height: 24),
-
-              // Deadline Section
-              _buildLabel('Deadline'),
-              const SizedBox(height: 8),
-              if (!_isEditMode)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: DarkThemeColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: DarkThemeColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today,
-                        color: DarkThemeColors.icon,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        _editedProject.deadline,
-                        style: TextStyle(
-                          color: DarkThemeColors.textPrimary,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                _buildTextField(
-                  controller: _deadlineController,
-                  hint: 'Select deadline',
-                  isDark: isDark,
-                  readOnly: true,
-                  onTap: _pickDate,
-                  suffixIcon: Icon(
-                    Icons.calendar_today_outlined,
-                    color: DarkThemeColors.icon,
-                    size: 20,
-                  ),
-                ),
-              const SizedBox(height: 24),
-
-              // Category Section
-              _buildLabel('Category'),
-              const SizedBox(height: 8),
-              if (!_isEditMode)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: DarkThemeColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: DarkThemeColors.border),
-                  ),
-                  child: Text(
-                    _editedProject.category,
-                    style: TextStyle(
-                      color: DarkThemeColors.textPrimary,
-                      fontSize: 14,
-                    ),
-                  ),
-                )
-              else
-                _buildTextField(
-                  controller: _categoryController,
-                  hint: 'e.g., UI/UX, Development, Marketing',
-                  isDark: isDark,
-                ),
-              const SizedBox(height: 24),
-
-              // Color Selection (only in edit mode)
-              if (_isEditMode) ...[
-                _buildLabel('Card Color'),
-                const SizedBox(height: 8),
-                _buildColorPicker(),
-                const SizedBox(height: 24),
-              ],
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildColorPicker() {
-    final List<Color> colorOptions = [
-      const Color(0xFF0062FF),
-      const Color(0xFF40C4AA),
-      const Color(0xFFFFBE4C),
-      const Color(0xFFDF1C41),
-      const Color(0xFF3381FF),
-      const Color(0xFF66A1FF),
-    ];
-
-    return Wrap(
-      spacing: 12,
-      children: colorOptions.map((color) {
-        final isSelected = _editedProject.cardColor.value == color.value;
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              _editedProject = _editedProject.copyWith(cardColor: color);
-            });
-          },
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected
-                    ? DarkThemeColors.primary100
-                    : DarkThemeColors.border,
-                width: isSelected ? 3 : 1,
+  Widget _buildAppBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+            onPressed: () => context.pop(),
+          ),
+          Expanded(
+            child: Center(
+              child: Text(
+                'Project Details',
+                style: AppTextStyles.headlineSmall.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-            child: isSelected
-                ? const Icon(Icons.check, color: Colors.white, size: 20)
-                : null,
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () {
+              // Show menu
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProjectImage() {
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          height: 200,
+          decoration: BoxDecoration(
+            color: DarkThemeColors.surface,
+          ),
+          child: _project.imagePath != null
+              ? Image.asset(
+                  _project.imagePath!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: _project.cardColor.withOpacity(0.3),
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: 64,
+                        color: DarkThemeColors.textSecondary,
+                      ),
+                    );
+                  },
+                )
+              : Container(
+                  color: _project.cardColor.withOpacity(0.3),
+                  child: Icon(
+                    Icons.image_outlined,
+                    size: 64,
+                    color: DarkThemeColors.textSecondary,
+                  ),
+                ),
+        ),
+        // Priority Badge
+        Positioned(
+          top: 12,
+          left: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _getPriorityColor(_project.priority),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _getPriorityText(_project.priority),
+              style: AppTextStyles.bodySmall.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ),
+        // Edit Icon
+        Positioned(
+          bottom: 12,
+          right: 12,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: DarkThemeColors.primary100,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.edit,
+              color: Colors.white,
+              size: 16,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProgressSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Progress',
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: DarkThemeColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Progress Bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: DarkThemeColors.surface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Stack(
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final completedWidth = constraints.maxWidth * _project.progress;
+                    return Row(
+                      children: [
+                        Container(
+                          width: completedWidth,
+                          decoration: BoxDecoration(
+                            color: _project.cardColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            color: DarkThemeColors.border,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '${_project.completedTasksCount}/${_project.totalTasksCount} Task',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: DarkThemeColors.textSecondary,
+              ),
+            ),
+            Text(
+              '${(_project.progress * 100).toInt()}%',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: DarkThemeColors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTaskTabs() {
+    final tabs = ['All Task', 'Ongoing', 'Completed'];
+    return Row(
+      children: tabs.map((tab) {
+        final isSelected = _selectedTab == tab;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedTab = tab;
+                _updateFilteredTasks();
+              });
+            },
+            child: Column(
+              children: [
+                Text(
+                  tab,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: isSelected
+                        ? DarkThemeColors.primary100
+                        : DarkThemeColors.textSecondary,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? DarkThemeColors.primary100
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
     );
   }
 
-  Widget _buildProgressSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: DarkThemeColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: DarkThemeColors.border),
-      ),
-      child: Column(
+  Widget _buildTaskList() {
+    if (_filteredTasks.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'No tasks found',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: DarkThemeColors.textSecondary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: _filteredTasks.map((task) {
+        return _buildTaskItem(task);
+      }).toList(),
+    );
+  }
+
+  Widget _buildTaskItem(Task task) {
+    String monthName;
+    switch (task.date.month) {
+      case 1: monthName = 'January'; break;
+      case 2: monthName = 'February'; break;
+      case 3: monthName = 'March'; break;
+      case 4: monthName = 'April'; break;
+      case 5: monthName = 'May'; break;
+      case 6: monthName = 'June'; break;
+      case 7: monthName = 'July'; break;
+      case 8: monthName = 'August'; break;
+      case 9: monthName = 'September'; break;
+      case 10: monthName = 'October'; break;
+      case 11: monthName = 'November'; break;
+      case 12: monthName = 'December'; break;
+      default: monthName = '';
+    }
+    
+    final dateString = '${monthName} ${task.date.day}, ${task.date.year}';
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
         children: [
-          if (!_isEditMode) ...[
-            // Circular Progress Indicator
-            SizedBox(
-              width: 120,
-              height: 120,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    value: _editedProject.progress,
-                    strokeWidth: 10,
-                    backgroundColor: DarkThemeColors.border,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      _editedProject.cardColor,
+          GestureDetector(
+            onTap: () => _toggleTaskCompletion(task),
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: task.isCompleted
+                      ? _project.cardColor
+                      : DarkThemeColors.border,
+                  width: 2,
+                ),
+                color: task.isCompleted
+                    ? _project.cardColor
+                    : Colors.transparent,
+              ),
+              child: task.isCompleted
+                  ? const Icon(
+                      Icons.check,
+                      size: 16,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  task.title,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: task.isCompleted
+                        ? DarkThemeColors.textSecondary
+                        : DarkThemeColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    decoration: task.isCompleted
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      dateString,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: DarkThemeColors.textSecondary,
+                      ),
                     ),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${(_editedProject.progress * 100).toInt()}%',
-                        style: TextStyle(
-                          color: DarkThemeColors.textPrimary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'at',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: DarkThemeColors.textSecondary,
                       ),
-                      Text(
-                        'Complete',
-                        style: TextStyle(
-                          color: DarkThemeColors.textSecondary,
-                          fontSize: 12,
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      task.time,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: DarkThemeColors.textSecondary,
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Project Progress',
-              style: TextStyle(
-                color: DarkThemeColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ] else ...[
-            _buildLabel(
-              'Progress: ${(_editedProject.progress * 100).toInt()}%',
-            ),
-            const SizedBox(height: 16),
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: _editedProject.cardColor,
-                inactiveTrackColor: DarkThemeColors.border,
-                thumbColor: _editedProject.cardColor,
-                overlayColor: _editedProject.cardColor.withOpacity(0.2),
-              ),
-              child: Slider(
-                value: _editedProject.progress,
-                onChanged: (value) {
-                  setState(() {
-                    _editedProject = _editedProject.copyWith(progress: value);
-                  });
-                },
-              ),
-            ),
-          ],
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildLabel(String label) {
-    return Text(
-      label,
-      style: TextStyle(
-        color: DarkThemeColors.textSecondary,
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required bool isDark,
-    int maxLines = 1,
-    bool readOnly = false,
-    VoidCallback? onTap,
-    Widget? suffixIcon,
-  }) {
-    return TextField(
-      controller: controller,
-      readOnly: readOnly,
-      onTap: onTap,
-      maxLines: maxLines,
-      style: TextStyle(color: DarkThemeColors.textPrimary, fontSize: 14),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(
-          color: DarkThemeColors.textSecondary,
-          fontSize: 14,
-        ),
-        filled: true,
-        fillColor: DarkThemeColors.background,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: DarkThemeColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: DarkThemeColors.primary100, width: 1.5),
-        ),
-        suffixIcon: suffixIcon,
       ),
     );
   }

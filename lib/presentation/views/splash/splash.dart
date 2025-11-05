@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../core/utils/app_text_styles.dart';
 import 'package:lottie/lottie.dart';
-import 'package:get/get.dart';
-import '../onboarding/onboarding.dart';
+import 'package:go_router/go_router.dart';
+import '../../../routes/app_routes.dart';
 import '../../bindings/onboarding/onboarding_binding.dart';
 
 class Splash extends StatefulWidget {
@@ -29,8 +29,10 @@ class _SplashState extends State<Splash> with TickerProviderStateMixin {
       if (status == AnimationStatus.completed) {
         // Navigate to onboarding after animation completes
         Future.delayed(const Duration(milliseconds: 500), () {
-          OnboardingBinding().dependencies();
-          Get.off(() => const Onboarding());
+          if (mounted) {
+            OnboardingBinding().dependencies();
+            context.go(AppRoutes.onboarding);
+          }
         });
       }
     });
@@ -89,7 +91,9 @@ class _SplashState extends State<Splash> with TickerProviderStateMixin {
                         width: MediaQuery.of(context).size.width * 0.4,
                         height: 100,
                         child: const CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       );
                     },

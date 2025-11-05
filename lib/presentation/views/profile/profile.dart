@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_text_styles.dart';
@@ -292,7 +291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: () {
                       if (_formKey.currentState?.validate() ?? false) {
                         // TODO: Handle profile submission
-                        Get.toNamed(AppRoutes.home);
+                        context.go(AppRoutes.home);
                       }
                     },
                     child: Text(
