@@ -1,7 +1,5 @@
 import 'package:dev_flow/routes/app_routes.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:dev_flow/presentation/views/splash/splash.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -27,13 +25,13 @@ class _MyAppState extends State<MyApp> {
       url: dotenv.env['SUPABASE_URL']!,
     );
   }
+
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(  // Make sure this is GetMaterialApp, not MaterialApp
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Your App',
-      initialRoute: AppRoutes.splash,
-      getPages: AppRoutes.routes,
+      routerConfig: AppRoutes.router,
       theme: ThemeData.dark(),
     );
   }
