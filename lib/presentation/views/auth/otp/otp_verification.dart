@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pinput/pinput.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_text_styles.dart';
@@ -49,7 +50,7 @@ class _OtpVerificationState extends State<OtpVerification> {
           _pinFocusNode.unfocus();
     }
     // Add your OTP verification logic here
-    Get.toNamed(AppRoutes.verificationScreen);
+    context.go(AppRoutes.verificationScreen);
   }
 
   void _resendOtp() {

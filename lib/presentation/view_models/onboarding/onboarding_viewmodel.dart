@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-import '../../views/get_started/get_started.dart';
+import 'package:go_router/go_router.dart';
+import '../../../routes/app_routes.dart';
 
 class OnboardingViewModel extends GetxController with GetTickerProviderStateMixin {
   final PageController pageController = PageController();
@@ -72,23 +73,23 @@ class OnboardingViewModel extends GetxController with GetTickerProviderStateMixi
     }
   }
 
-  void nextPage() {
+  void nextPage(BuildContext context) {
     if (currentPage.value < totalPages - 1) {
       pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     } else {
-      navigateToGetStarted();
+      navigateToGetStarted(context);
     }
   }
 
-  void skipToGetStarted() {
-    navigateToGetStarted();
+  void skipToGetStarted(BuildContext context) {
+    navigateToGetStarted(context);
   }
 
-  void navigateToGetStarted() {
-    Get.off(() => const GetStarted());
+  void navigateToGetStarted(BuildContext context) {
+    context.go(AppRoutes.getStarted);
   }
 
   void onPageChanged(int index) {
