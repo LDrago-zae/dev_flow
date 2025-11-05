@@ -1,12 +1,11 @@
 import 'package:dev_flow/presentation/views/profile/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_text_styles.dart';
-import '../signin/signin.dart';
+import '../../../../routes/app_routes.dart';
 
 class SigninVerification extends StatefulWidget {
   const SigninVerification({super.key});
@@ -89,7 +88,7 @@ class _SigninVerificationState extends State<SigninVerification> {
                   ),
                 ),
                 onPressed: () {
-                  Get.offAll(() => const ProfileScreen());
+                  context.go(AppRoutes.profile);
                 },
                 child: Text(
                   'Create your profile',

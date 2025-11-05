@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_text_styles.dart';
-import '../signin/signin.dart';
+import '../../../../routes/app_routes.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -88,7 +87,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   ),
                 ),
                 onPressed: () {
-                  Get.offAll(() => const SignIn());
+                  context.go(AppRoutes.signin);
                 },
                 child: Text(
                   'Go to Login',

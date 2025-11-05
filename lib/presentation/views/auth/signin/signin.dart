@@ -1,12 +1,12 @@
 import 'package:dev_flow/core/utils/string_extensions.dart';
-import 'package:dev_flow/presentation/views/auth/signin/signin_verification.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../signup/signup.dart';
+import '../../../../routes/app_routes.dart';
 
 class SignIn extends StatefulWidget {
   const SignIn({super.key});
@@ -225,7 +225,7 @@ class _SignInState extends State<SignIn> {
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
                         // TODO: Implement sign in logic
-                        Get.to(() => const SigninVerification());
+                        context.push(AppRoutes.signinVerification);
                       }
                     },
                     child: Text(
@@ -293,7 +293,7 @@ class _SignInState extends State<SignIn> {
                       ),
                       GestureDetector(
                         onTap: () {
-                          Get.to(() => const Signup());
+                          context.push(AppRoutes.signup);
                         },
                         child: Text(
                           'Sign Up',

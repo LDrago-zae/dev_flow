@@ -1,13 +1,12 @@
 import 'package:dev_flow/core/utils/string_extensions.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../otp/otp_verification.dart';
-import '../signin/signin.dart';
+import '../../../../routes/app_routes.dart';
 
 class Signup extends StatefulWidget {
   const Signup({super.key});
@@ -289,7 +288,7 @@ class _SignupState extends State<Signup> {
                           return;
                         }
                         // Navigate to OTP screen
-                        Get.to(() => OtpVerification(email: emailController.text));
+                        context.push('${AppRoutes.otpVerification}?email=${Uri.encodeComponent(emailController.text)}');
                       }
                     },
 
@@ -363,7 +362,7 @@ class _SignupState extends State<Signup> {
                       ),
                       GestureDetector(
                         onTap: () {
-                          Get.to(() => const SignIn());
+                          context.push(AppRoutes.signin);
                         },
                         child: Text(
                           'Sign In',
