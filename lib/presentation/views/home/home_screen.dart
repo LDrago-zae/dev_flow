@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/data/models/project_model.dart';
+import 'package:dev_flow/data/models/task_model.dart';
 import 'package:dev_flow/presentation/widgets/custom_search_bar.dart';
 import 'package:dev_flow/presentation/widgets/filter_chip_button.dart';
 import 'package:dev_flow/presentation/widgets/project_card.dart';
@@ -22,11 +23,44 @@ class _HomeScreenState extends State<HomeScreen> {
     Project(
       title: 'E-commerce Platform Redesign - NovaShop',
       description:
-          'Enhancing the user interface design of NovaShop, an e-commerce platform, for a more...',
-      deadline: 'January 30, 2025',
-      progress: 0.65,
+          'Overhauling the user interface design of NovaShop, our e-commerce platform, for a modern and user-friendly experience.',
+      deadline: 'January 30, 2024',
+      createdDate: DateTime(2023, 11, 12),
+      progress: 0.70,
       cardColor: const Color(0xFF0062FF),
       category: 'UI/UX',
+      priority: ProjectPriority.high,
+      status: ProjectStatus.ongoing,
+      tasks: [
+        Task(
+          id: '1',
+          title: 'Conduct User Research',
+          date: DateTime(2023, 11, 24),
+          time: '10:00 AM',
+          isCompleted: true,
+        ),
+        Task(
+          id: '2',
+          title: 'Wireframe New Homepage',
+          date: DateTime(2023, 11, 30),
+          time: '11:45 AM',
+          isCompleted: true,
+        ),
+        Task(
+          id: '3',
+          title: 'Redesign Product Pages',
+          date: DateTime(2023, 12, 4),
+          time: '3:00 PM',
+          isCompleted: false,
+        ),
+        Task(
+          id: '4',
+          title: 'Update Navigation Menu',
+          date: DateTime(2023, 12, 8),
+          time: '2:30 PM',
+          isCompleted: false,
+        ),
+      ],
     ),
   ];
 
@@ -278,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
             cardColor: project.cardColor,
             category: project.category,
             onTap: () async {
-              await Navigator.push(
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => ProjectDetailsScreen(
@@ -511,9 +545,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: titleController.text,
                               description: descriptionController.text,
                               deadline: deadlineController.text,
+                              createdDate: DateTime.now(),
                               progress: progress,
                               cardColor: selectedColor,
                               category: categoryController.text,
+                              priority: ProjectPriority.medium,
+                              status: ProjectStatus.ongoing,
                             ),
                           );
                         });

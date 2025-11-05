@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_text_styles.dart';
 import '../../../core/utils/animations/app_animations.dart';
-import '../auth/signup/signup.dart';
+import '../../../routes/app_routes.dart';
 
 class GetStarted extends StatefulWidget {
   const GetStarted({super.key});
@@ -139,7 +138,7 @@ class _GetStartedState extends State<GetStarted> with SingleTickerProviderStateM
                         ElevatedButton(
                           onPressed: () {
                             // Navigate to main app
-                            Get.offAll(() => const Signup());
+                            context.go(AppRoutes.signup);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: LightThemeColors.primary600,
