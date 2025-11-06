@@ -16,6 +16,7 @@ class Project {
   final ProjectStatus status;
   final String? imagePath;
   final List<Task> tasks;
+  final String? assignedUserId;
 
   Project({
     required this.title,
@@ -29,6 +30,7 @@ class Project {
     this.status = ProjectStatus.ongoing,
     this.imagePath,
     this.tasks = const [],
+    this.assignedUserId,
   });
 
   Project copyWith({
@@ -43,6 +45,7 @@ class Project {
     ProjectStatus? status,
     String? imagePath,
     List<Task>? tasks,
+    String? assignedUserId,
   }) {
     return Project(
       title: title ?? this.title,
@@ -56,6 +59,7 @@ class Project {
       status: status ?? this.status,
       imagePath: imagePath ?? this.imagePath,
       tasks: tasks ?? this.tasks,
+      assignedUserId: assignedUserId ?? this.assignedUserId,
     );
   }
 
