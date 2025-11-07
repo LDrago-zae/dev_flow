@@ -8,6 +8,11 @@ import 'package:dev_flow/data/models/task_model.dart';
 import 'package:dev_flow/data/models/user_model.dart';
 import 'package:dev_flow/presentation/widgets/user_avatar.dart';
 import 'package:dev_flow/presentation/widgets/user_dropdown.dart';
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dev_flow/data/repositories/task_repository.dart';
+import 'package:dev_flow/services/realtime_service.dart';
+import 'dart:async';
 
 class ProjectDetailsScreen extends StatefulWidget {
   final Project project;
@@ -35,17 +40,84 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   String? _selectedTaskUserId;
   String? _selectedProjectUserId;
 
+  // Supabase integration
+  final TaskRepository _taskRepository = TaskRepository();
+  final RealtimeService _realtimeService = RealtimeService();
+  late StreamSubscription<Task> _taskSubscription;
+  late StreamSubscription<Project> _projectSubscription;
+
+  bool _isLoading = false;
+  String? _error;
+
   @override
   void initState() {
     super.initState();
     _project = widget.project;
     _selectedProjectUserId = widget.project.assignedUserId;
     _updateFilteredTasks();
+    _setupRealtimeSubscriptions();
+    _loadProjectData();
+  }
+
+  void _setupRealtimeSubscriptions() {
+    // Subscribe to project updates
+    _realtimeService.subscribeToUserProjects(_project.userId);
+    _projectSubscription = _realtimeService.projectUpdates.listen((
+      updatedProject,
+    ) {
+      if (updatedProject.id == _project.id) {
+        setState(() {
+          _project = updatedProject;
+          _updateFilteredTasks();
+        });
+      }
+    });
+
+    // Subscribe to project task updates
+    _realtimeService.subscribeToProjectTasks(_project.id);
+    _taskSubscription = _realtimeService.taskUpdates.listen((updatedTask) {
+      setState(() {
+        // Update task in project
+        final updatedTasks = _project.tasks.map((task) {
+          return task.id == updatedTask.id ? updatedTask : task;
+        }).toList();
+
+        _project = _project.copyWith(tasks: updatedTasks);
+        _updateFilteredTasks();
+      });
+    });
+  }
+
+  Future<void> _loadProjectData() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not authenticated');
+
+      final tasks = await _taskRepository.getTasks(
+        userId,
+        projectId: _project.id,
+      );
+
+      setState(() {
+        _project = _project.copyWith(tasks: tasks);
+        _updateFilteredTasks();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   void dispose() {
     _taskTitleController.dispose();
+    _taskSubscription.cancel();
+    _projectSubscription.cancel();
+    _realtimeService.dispose();
     super.dispose();
   }
 
@@ -130,11 +202,30 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
   }
 
-  void _toggleTaskCompletion(Task task) {
+  Future<void> _toggleTaskCompletion(Task task) async {
+    // Optimistic update - immediately update UI
+    final updatedTask = task.copyWith(isCompleted: !task.isCompleted);
+    _optimisticUpdateTask(updatedTask);
+
+    try {
+      await _taskRepository.updateTask(updatedTask);
+      // Real-time subscription will handle the final update
+    } catch (e) {
+      // Revert on error
+      _optimisticUpdateTask(task);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update task: $e')));
+      }
+    }
+  }
+
+  void _optimisticUpdateTask(Task updatedTask) {
     setState(() {
       final updatedTasks = _project.tasks.map((t) {
-        if (t.id == task.id) {
-          return t.copyWith(isCompleted: !t.isCompleted);
+        if (t.id == updatedTask.id) {
+          return updatedTask;
         }
         return t;
       }).toList();
@@ -145,84 +236,71 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           : completedCount / updatedTasks.length;
 
       _project = _project.copyWith(tasks: updatedTasks, progress: newProgress);
-
       widget.onUpdate(_project);
       _updateFilteredTasks();
     });
   }
 
-  void _addOrUpdateTask() {
+  Future<void> _addOrUpdateTask() async {
     if (_taskTitleController.text.trim().isEmpty) {
       return;
     }
 
-    if (_isEditing && _editingTask != null) {
-      // Edit existing task
-      final updatedTask = _editingTask!.copyWith(
-        title: _taskTitleController.text.trim(),
-        date: _selectedDate,
-        time:
-            '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
-        assignedUserId: _selectedTaskUserId,
-      );
-
-      setState(() {
-        final updatedTasks = _project.tasks.map((t) {
-          return t.id == _editingTask!.id ? updatedTask : t;
-        }).toList();
-
-        _project = _project.copyWith(tasks: updatedTasks);
-        widget.onUpdate(_project);
-        _updateFilteredTasks();
-      });
-    } else {
-      // Add new task
-      final newTask = Task(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: _taskTitleController.text.trim(),
-        date: _selectedDate,
-        time:
-            '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
-        isCompleted: false,
-        assignedUserId: _selectedTaskUserId,
-      );
-
-      setState(() {
-        final updatedTasks = [..._project.tasks, newTask];
-        final completedCount = updatedTasks.where((t) => t.isCompleted).length;
-        final newProgress = updatedTasks.isEmpty
-            ? 0.0
-            : completedCount / updatedTasks.length;
-
-        _project = _project.copyWith(
-          tasks: updatedTasks,
-          progress: newProgress,
+    try {
+      if (_isEditing && _editingTask != null) {
+        // Edit existing task
+        final updatedTask = _editingTask!.copyWith(
+          title: _taskTitleController.text.trim(),
+          date: _selectedDate,
+          time:
+              '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+          assignedUserId: _selectedTaskUserId,
         );
 
-        widget.onUpdate(_project);
-        _updateFilteredTasks();
-      });
-    }
+        await _taskRepository.updateTask(updatedTask);
+        // Real-time subscription will update UI
+      } else {
+        // Add new task
+        final newTask = Task(
+          id: const Uuid().v4(),
+          title: _taskTitleController.text.trim(),
+          date: _selectedDate,
+          time:
+              '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+          isCompleted: false,
+          assignedUserId: _selectedTaskUserId,
+          projectId: _project.id,
+          userId: Supabase.instance.client.auth.currentUser?.id ?? '',
+        );
 
-    _resetDialogState();
-    Navigator.pop(context);
+        await _taskRepository.createTask(newTask);
+        // Real-time subscription will update UI
+      }
+
+      _resetDialogState();
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save task: $e')));
+      }
+    }
   }
 
-  void _deleteTask(Task task) {
-    setState(() {
-      final updatedTasks = _project.tasks
-          .where((t) => t.id != task.id)
-          .toList();
-      final completedCount = updatedTasks.where((t) => t.isCompleted).length;
-      final newProgress = updatedTasks.isEmpty
-          ? 0.0
-          : completedCount / updatedTasks.length;
-
-      _project = _project.copyWith(tasks: updatedTasks, progress: newProgress);
-
-      widget.onUpdate(_project);
-      _updateFilteredTasks();
-    });
+  Future<void> _deleteTask(Task task) async {
+    try {
+      await _taskRepository.deleteTask(task.id);
+      // Real-time subscription will update UI
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete task: $e')));
+      }
+    }
   }
 
   void _assignProjectUser(String? userId) {
@@ -491,6 +569,56 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: DarkThemeColors.background,
+        body: const Center(
+          child: CircularProgressIndicator(color: DarkThemeColors.primary100),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: DarkThemeColors.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: DarkThemeColors.error),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load project',
+                style: AppTextStyles.headlineSmall.copyWith(
+                  color: DarkThemeColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: DarkThemeColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loadProjectData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DarkThemeColors.primary100,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: DarkThemeColors.background,
       body: SafeArea(
@@ -1055,7 +1183,9 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             ),
             const SizedBox(width: 8),
             UserAvatar(
-              user: task.assignedUserId != null ? DummyUsers.getUserById(task.assignedUserId!) : null,
+              user: task.assignedUserId != null
+                  ? DummyUsers.getUserById(task.assignedUserId!)
+                  : null,
               radius: 16,
             ),
           ],

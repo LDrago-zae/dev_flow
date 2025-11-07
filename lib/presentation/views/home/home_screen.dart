@@ -4,7 +4,6 @@ import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/data/models/project_model.dart';
 import 'package:dev_flow/data/models/task_model.dart';
 import 'package:dev_flow/presentation/widgets/custom_search_bar.dart';
-import 'package:dev_flow/presentation/widgets/filter_chip_button.dart';
 import 'package:dev_flow/presentation/widgets/project_card.dart';
 import 'package:dev_flow/presentation/widgets/task_item.dart';
 import 'package:dev_flow/presentation/widgets/home/home_header.dart';
@@ -14,6 +13,12 @@ import 'package:dev_flow/presentation/widgets/home/fab_options_dialog.dart';
 import 'package:dev_flow/presentation/dialogs/add_project_dialog.dart';
 import 'package:dev_flow/presentation/dialogs/add_quick_todo_dialog.dart';
 import 'package:dev_flow/presentation/views/project_details/project_details_screen.dart';
+import 'package:dev_flow/data/repositories/project_repository.dart';
+import 'package:dev_flow/data/repositories/task_repository.dart';
+import 'package:dev_flow/services/realtime_service.dart';
+import 'dart:async';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,56 +29,145 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedBottomNavIndex = 0;
-  String _selectedFilter = 'All Task';
-  final List<Project> _projects = [
-    Project(
-      title: 'E-commerce Platform Redesign - NovaShop',
-      description:
-          'Overhauling the user interface design of NovaShop, our e-commerce platform, for a modern and user-friendly experience.',
-      deadline: 'January 30, 2024',
-      createdDate: DateTime(2023, 11, 12),
-      progress: 0.70,
-      cardColor: const Color(0xFF0062FF),
-      category: 'UI/UX',
-      priority: ProjectPriority.high,
-      status: ProjectStatus.ongoing,
-      tasks: [
-        Task(
-          id: '1',
-          title: 'Conduct User Research',
-          date: DateTime(2023, 11, 24),
-          time: '10:00 AM',
-          isCompleted: true,
-        ),
-        Task(
-          id: '2',
-          title: 'Wireframe New Homepage',
-          date: DateTime(2023, 11, 30),
-          time: '11:45 AM',
-          isCompleted: true,
-        ),
-        Task(
-          id: '3',
-          title: 'Redesign Product Pages',
-          date: DateTime(2023, 12, 4),
-          time: '3:00 PM',
-          isCompleted: false,
-        ),
-        Task(
-          id: '4',
-          title: 'Update Navigation Menu',
-          date: DateTime(2023, 12, 8),
-          time: '2:30 PM',
-          isCompleted: false,
-        ),
-      ],
-    ),
-  ];
-  final List<Task> _quickTodos = [];
+
+  // Supabase integration
+  final ProjectRepository _projectRepository = ProjectRepository();
+  final TaskRepository _taskRepository = TaskRepository();
+  final RealtimeService _realtimeService = RealtimeService();
+
+  late StreamSubscription<Project> _projectSubscription;
+  late StreamSubscription<Task> _taskSubscription;
+
+  List<Project> _projects = [];
+  List<Task> _quickTodos = [];
+
+  bool _isLoading = true;
+  String? _error;
+  String _userName = 'User';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      setState(() => _error = 'User not authenticated');
+      return;
+    }
+
+    // Get user profile for name
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('name')
+          .eq('id', userId)
+          .single();
+      _userName = profile['name'] ?? 'User';
+    } catch (e) {
+      // Use default name if profile not found
+      _userName = 'User';
+    }
+
+    // Setup real-time subscriptions
+    _realtimeService.subscribeToUserProjects(userId);
+    _realtimeService.subscribeToUserTasks(userId);
+
+    _projectSubscription = _realtimeService.projectUpdates.listen((project) {
+      _updateProjectInList(project);
+    });
+
+    _taskSubscription = _realtimeService.taskUpdates.listen((task) {
+      if (task.projectId == null) {
+        _updateQuickTodoInList(task);
+      } else {
+        _updateTaskInProject(task);
+      }
+    });
+
+    // Load initial data
+    await _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+
+      final projects = await _projectRepository.getProjects(userId);
+      final quickTodos = await _taskRepository.getTasks(
+        userId,
+        projectId: null,
+      );
+
+      setState(() {
+        _projects = projects;
+        _quickTodos = quickTodos;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: DarkThemeColors.background,
+        body: const Center(
+          child: CircularProgressIndicator(color: DarkThemeColors.primary100),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: DarkThemeColors.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: DarkThemeColors.error),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load data',
+                style: TextStyle(
+                  color: DarkThemeColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(color: DarkThemeColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loadData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DarkThemeColors.primary100,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: DarkThemeColors.background,
@@ -83,22 +177,74 @@ class _HomeScreenState extends State<HomeScreen> {
             context: context,
             backgroundColor: Colors.transparent,
             builder: (context) => FabOptionsDialog(
-              onAddProject: () => AddProjectDialog.show(
-                context,
-                onProjectCreated: (project) {
-                  setState(() {
-                    _projects.add(project);
-                  });
-                },
-              ),
-              onAddQuickTodo: () => AddQuickTodoDialog.show(
-                context,
-                onTodoCreated: (todo) {
-                  setState(() {
-                    _quickTodos.add(todo);
-                  });
-                },
-              ),
+              onAddProject: () {
+                // Capture the context before async operations
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                AddProjectDialog.show(
+                  context,
+                  onProjectCreated: (project) async {
+                    try {
+                      await _projectRepository.createProject(project);
+                      // Immediately add to list for instant UI update
+                      if (mounted) {
+                        setState(() {
+                          _projects.insert(0, project);
+                        });
+                        // Show success message
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Project created successfully!'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to create project: $e'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                );
+              },
+              onAddQuickTodo: () {
+                // Capture the context before async operations
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                AddQuickTodoDialog.show(
+                  context,
+                  onTodoCreated: (todo) async {
+                    try {
+                      await _taskRepository.createTask(todo);
+                      // Immediately add to list for instant UI update
+                      if (mounted) {
+                        setState(() {
+                          _quickTodos.insert(0, todo);
+                        });
+                        // Show success message
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Quick todo created successfully!'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(content: Text('Failed to create todo: $e')),
+                        );
+                      }
+                    }
+                  },
+                );
+              },
             ),
           );
         },
@@ -112,8 +258,14 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header Section
-                HomeHeader(userName: 'Jenny', isDark: isDark),
+                // Header Section with logout
+                HomeHeader(
+                  userName: _userName,
+                  isDark: isDark,
+                  onLogout: () async {
+                    await Supabase.instance.client.auth.signOut();
+                  },
+                ),
                 const SizedBox(height: 24),
 
                 // Search Bar
@@ -140,13 +292,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                   QuickTodoList(
                     todos: _quickTodos,
-                    onTodoTap: (todo) {
-                      setState(() {
-                        final index = _quickTodos.indexOf(todo);
-                        _quickTodos[index] = todo.copyWith(
+                    onTodoTap: (todo) async {
+                      try {
+                        final updatedTodo = todo.copyWith(
                           isCompleted: !todo.isCompleted,
                         );
-                      });
+                        await _taskRepository.updateTask(updatedTodo);
+                        // Real-time subscription will update the UI
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to update todo: $e')),
+                        );
+                      }
                     },
                     formatDate: _formatDate,
                   ),
@@ -176,28 +333,62 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFilterChips() {
-    final filters = ['All Task', 'Today', 'Ongoing', 'Completed'];
+  void _updateProjectInList(Project updatedProject) {
+    setState(() {
+      final index = _projects.indexWhere((p) => p.id == updatedProject.id);
+      if (index != -1) {
+        // Update existing project
+        _projects[index] = updatedProject;
+      } else {
+        // Add new project at the beginning only if it doesn't exist
+        // Check again to avoid duplicates from race conditions
+        if (!_projects.any((p) => p.id == updatedProject.id)) {
+          _projects.insert(0, updatedProject);
+        }
+      }
+    });
+  }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: filters.map((filter) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChipButton(
-              label: filter,
-              isSelected: _selectedFilter == filter,
-              onTap: () {
-                setState(() {
-                  _selectedFilter = filter;
-                });
-              },
-            ),
+  void _updateQuickTodoInList(Task updatedTask) {
+    setState(() {
+      final index = _quickTodos.indexWhere((t) => t.id == updatedTask.id);
+      if (index != -1) {
+        _quickTodos[index] = updatedTask;
+      } else {
+        // Add new todo at the beginning only if it doesn't exist
+        if (!_quickTodos.any((t) => t.id == updatedTask.id)) {
+          _quickTodos.insert(0, updatedTask);
+        }
+      }
+    });
+  }
+
+  void _updateTaskInProject(Task updatedTask) {
+    setState(() {
+      final projectIndex = _projects.indexWhere(
+        (p) => p.id == updatedTask.projectId,
+      );
+      if (projectIndex != -1) {
+        final taskIndex = _projects[projectIndex].tasks.indexWhere(
+          (t) => t.id == updatedTask.id,
+        );
+        if (taskIndex != -1) {
+          final updatedTasks = List<Task>.from(_projects[projectIndex].tasks);
+          updatedTasks[taskIndex] = updatedTask;
+          _projects[projectIndex] = _projects[projectIndex].copyWith(
+            tasks: updatedTasks,
           );
-        }).toList(),
-      ),
-    );
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _projectSubscription.cancel();
+    _taskSubscription.cancel();
+    _realtimeService.dispose();
+    super.dispose();
   }
 
   Widget _buildTaskList() {
@@ -367,6 +558,51 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          FilterChip(
+            label: Text('All'),
+            selected: true,
+            onSelected: (selected) {},
+            backgroundColor: DarkThemeColors.surface,
+            selectedColor: DarkThemeColors.primary100.withOpacity(0.2),
+            checkmarkColor: DarkThemeColors.primary100,
+          ),
+          const SizedBox(width: 8),
+          FilterChip(
+            label: Text('Pending'),
+            selected: false,
+            onSelected: (selected) {},
+            backgroundColor: DarkThemeColors.surface,
+            selectedColor: DarkThemeColors.primary100.withOpacity(0.2),
+            checkmarkColor: DarkThemeColors.primary100,
+          ),
+          const SizedBox(width: 8),
+          FilterChip(
+            label: Text('In Progress'),
+            selected: false,
+            onSelected: (selected) {},
+            backgroundColor: DarkThemeColors.surface,
+            selectedColor: DarkThemeColors.primary100.withOpacity(0.2),
+            checkmarkColor: DarkThemeColors.primary100,
+          ),
+          const SizedBox(width: 8),
+          FilterChip(
+            label: Text('Completed'),
+            selected: false,
+            onSelected: (selected) {},
+            backgroundColor: DarkThemeColors.surface,
+            selectedColor: DarkThemeColors.primary100.withOpacity(0.2),
+            checkmarkColor: DarkThemeColors.primary100,
+          ),
+        ],
       ),
     );
   }
