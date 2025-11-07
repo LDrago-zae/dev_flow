@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/data/models/task_model.dart';
 import 'package:dev_flow/presentation/widgets/user_dropdown.dart';
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddQuickTodoDialog {
   static void show(
@@ -198,12 +200,13 @@ class AddQuickTodoDialog {
                       onPressed: () {
                         if (titleController.text.isNotEmpty) {
                           final todo = Task(
-                            id: DateTime.now().millisecondsSinceEpoch.toString(),
+                            id: const Uuid().v4(),
                             title: titleController.text,
                             date: selectedDate,
                             time: '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
                             isCompleted: false,
                             assignedUserId: selectedUserId,
+                            userId: Supabase.instance.client.auth.currentUser?.id ?? '',
                           );
                           onTodoCreated(todo);
                           Navigator.pop(context);

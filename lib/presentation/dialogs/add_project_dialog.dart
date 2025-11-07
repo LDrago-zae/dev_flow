@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/data/models/project_model.dart';
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddProjectDialog {
   static void show(
@@ -209,6 +211,7 @@ class AddProjectDialog {
                           deadlineController.text.isNotEmpty &&
                           categoryController.text.isNotEmpty) {
                         final project = Project(
+                          id: const Uuid().v4(),
                           title: titleController.text,
                           description: descriptionController.text,
                           deadline: deadlineController.text,
@@ -218,6 +221,7 @@ class AddProjectDialog {
                           category: categoryController.text,
                           priority: ProjectPriority.medium,
                           status: ProjectStatus.ongoing,
+                          userId: Supabase.instance.client.auth.currentUser?.id ?? '',
                         );
                         onProjectCreated(project);
                         Navigator.pop(context);

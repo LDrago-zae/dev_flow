@@ -1,10 +1,10 @@
 import 'package:dev_flow/core/utils/string_extensions.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../routes/app_routes.dart';
 
@@ -222,10 +222,24 @@ class _SignInState extends State<SignIn> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       if (_formKey.currentState!.validate()) {
-                        // TODO: Implement sign in logic
-                        context.push(AppRoutes.signinVerification);
+                        try {
+                          await Supabase.instance.client.auth.signInWithPassword(
+                            email: emailController.text.trim(),
+                            password: passwordController.text.trim(),
+                          );
+                          if (mounted) {
+                            context.go(AppRoutes.home);
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Sign in failed: ${e.toString()}'),
+                              backgroundColor: DarkThemeColors.error,
+                            ),
+                          );
+                        }
                       }
                     },
                     child: Text(

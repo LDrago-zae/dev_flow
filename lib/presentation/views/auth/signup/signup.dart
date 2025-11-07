@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_text_styles.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../routes/app_routes.dart';
 
@@ -269,7 +270,7 @@ class _SignupState extends State<Signup> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       if (_formKey.currentState!.validate()) {
                         if (!_agreeTerms) {
                           Get.snackbar(
@@ -287,11 +288,47 @@ class _SignupState extends State<Signup> {
                           );
                           return;
                         }
-                        // Navigate to OTP screen
-                        context.push('${AppRoutes.otpVerification}?email=${Uri.encodeComponent(emailController.text)}');
+
+                        try {
+                          final response = await Supabase.instance.client.auth
+                              .signUp(
+                                email: emailController.text.trim(),
+                                password: passwordController.text.trim(),
+                              );
+
+                          if (response.user != null) {
+                            // Create profile in database
+                            await Supabase.instance.client
+                                .from('profiles')
+                                .insert({
+                                  'id': response.user!.id,
+                                  'name':
+                                      'User', // Default name, can be updated later
+                                  'email': emailController.text.trim(),
+                                });
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Account created successfully! Please check your email for verification.',
+                                  ),
+                                ),
+                              );
+                              context.go(AppRoutes.signin);
+                            }
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Signup failed: ${e.toString()}'),
+                              backgroundColor: DarkThemeColors.error,
+                            ),
+                          );
+                          print(e.toString());
+                        }
                       }
                     },
-
 
                     child: Text(
                       'Sign Up',
