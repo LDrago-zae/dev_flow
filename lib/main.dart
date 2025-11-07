@@ -18,7 +18,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     Supabase.initialize(
       anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
@@ -30,7 +29,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'Your App',
+      title: 'Dev Flow',
       routerConfig: AppRoutes.router,
       theme: ThemeData.dark(),
     );
