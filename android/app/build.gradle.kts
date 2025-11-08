@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.techsprout.dev_flow"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "29.0.13599879"
+    ndkVersion = "29.0.14206865"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true  // Kotlin DSL syntax
