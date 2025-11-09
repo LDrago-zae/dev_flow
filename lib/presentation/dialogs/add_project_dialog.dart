@@ -272,7 +272,7 @@ class AddProjectDialog {
                           deadlineController.text.isNotEmpty &&
                           categoryController.text.isNotEmpty) {
                         final project = Project(
-                          id: const Uuid().v4(),
+                          id: Uuid().v4(),
                           title: titleController.text,
                           description: descriptionController.text,
                           deadline: deadlineController.text,

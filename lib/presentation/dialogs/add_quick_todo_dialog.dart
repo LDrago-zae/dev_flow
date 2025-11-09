@@ -31,7 +31,9 @@ class AddQuickTodoDialog {
             ),
             decoration: BoxDecoration(
               color: DarkThemeColors.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -86,7 +88,13 @@ class AddQuickTodoDialog {
                     selectedUserId: selectedUserId,
                     onUserSelected: (userId) {
                       setModalState(() {
-                        selectedUserId = userId;
+                        // Only accept valid UUIDs or null, ignore dummy user IDs
+                        if (userId == null || userId.length > 10) {
+                          selectedUserId = userId;
+                        } else {
+                          // If it's a dummy user ID (like '1', '2', etc), set to null
+                          selectedUserId = null;
+                        }
                       });
                     },
                     hintText: 'Assign to user',
@@ -108,7 +116,9 @@ class AddQuickTodoDialog {
                                   context: context,
                                   initialDate: selectedDate,
                                   firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 365),
+                                  ),
                                 );
                                 if (date != null) {
                                   setModalState(() {
@@ -199,17 +209,37 @@ class AddQuickTodoDialog {
                     child: ElevatedButton(
                       onPressed: () {
                         if (titleController.text.isNotEmpty) {
-                          final todo = Task(
-                            id: const Uuid().v4(),
-                            title: titleController.text,
-                            date: selectedDate,
-                            time: '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
-                            isCompleted: false,
-                            assignedUserId: selectedUserId,
-                            userId: Supabase.instance.client.auth.currentUser?.id ?? '',
-                          );
-                          onTodoCreated(todo);
-                          Navigator.pop(context);
+                          try {
+                            final todo = Task(
+                              id: Uuid().v4(),
+                              title: titleController.text,
+                              date: selectedDate,
+                              time:
+                                  '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                              isCompleted: false,
+                              assignedUserId: selectedUserId,
+                              userId:
+                                  Supabase
+                                      .instance
+                                      .client
+                                      .auth
+                                      .currentUser
+                                      ?.id ??
+                                  '',
+                            );
+                            print('Creating todo: ${todo.toJson()}');
+                            onTodoCreated(todo);
+                            Navigator.pop(context);
+                          } catch (e, stackTrace) {
+                            print('Error creating todo: $e');
+                            print('Stack trace: $stackTrace');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error creating todo: $e'),
+                                backgroundColor: DarkThemeColors.error,
+                              ),
+                            );
+                          }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
