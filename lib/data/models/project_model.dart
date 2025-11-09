@@ -84,6 +84,7 @@ class Project {
     );
   }
 
+  // ...existing code...
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -92,7 +93,7 @@ class Project {
       'deadline': deadline,
       'created_date': createdDate.toIso8601String(),
       'progress': progress,
-      'card_color': cardColor.value.toString(),
+      'card_color': cardColor.value, // Changed: Remove .toString()
       'category': category,
       'priority': priority.name,
       'status': status.name,
@@ -113,21 +114,32 @@ class Project {
       deadline: json['deadline'],
       createdDate: DateTime.parse(json['created_date']),
       progress: (json['progress'] as num).toDouble(),
-      cardColor: Color(int.parse(json['card_color'])),
+      cardColor: Color(
+        json['card_color'] is String
+            ? int.parse(json['card_color'])
+            : json['card_color'],
+      ), // Changed: Handle both String and int
       category: json['category'],
-      priority: ProjectPriority.values.byName(json['priority']),
-      status: ProjectStatus.values.byName(json['status']),
-      imagePath: json['image_path'],
-      assignedUserId: json['assigned_user_id'],
-      userId: json['owner_id'],
-      tags: List<String>.from(json['tags'] ?? []),
+      priority: json['priority'] != null
+          ? ProjectPriority.values.firstWhere(
+              (e) => e.name == json['priority'],
+              orElse: () => ProjectPriority.medium,
+            )
+          : ProjectPriority.medium,
+      status: json['status'] != null
+          ? ProjectStatus.values.firstWhere(
+              (e) => e.name == json['status'],
+              orElse: () => ProjectStatus.ongoing,
+            )
+          : ProjectStatus.ongoing,
+      userId: json['owner_id'] ?? json['user_id'],
       budget: json['budget'] != null
           ? (json['budget'] as num).toDouble()
           : null,
-      estimatedHours: json['estimated_hours'],
       tasks: tasks ?? [],
     );
   }
+  // ...existing code...
 
   int get completedTasksCount => tasks.where((task) => task.isCompleted).length;
   int get totalTasksCount => tasks.length;

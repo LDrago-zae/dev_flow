@@ -14,15 +14,18 @@ class AddProjectDialog {
     final deadlineController = TextEditingController();
     final categoryController = TextEditingController();
     double progress = 0.0;
-    Color selectedColor = const Color(0xFF0062FF);
+    Color selectedColor = LightThemeColors.cardBlue;
+    ProjectPriority selectedPriority = ProjectPriority.medium;
 
     final List<Color> colorOptions = [
-      const Color(0xFF0062FF),
-      const Color(0xFF40C4AA),
-      const Color(0xFFFFBE4C),
-      const Color(0xFFDF1C41),
-      const Color(0xFF3381FF),
-      const Color(0xFF66A1FF),
+      LightThemeColors.cardBlue,
+      LightThemeColors.cardRed,
+      LightThemeColors.cardGold,
+      LightThemeColors.cardGreen,
+      LightThemeColors.cardPurple,
+      LightThemeColors.cardTeal,
+      LightThemeColors.cardIndigo,
+      LightThemeColors.cardPink,
     ];
 
     showModalBottomSheet(
@@ -150,15 +153,73 @@ class AddProjectDialog {
                     inactiveTrackColor: DarkThemeColors.border,
                     thumbColor: DarkThemeColors.primary100,
                     overlayColor: DarkThemeColors.primary100.withOpacity(0.2),
+                    showValueIndicator: ShowValueIndicator.always,
+                    valueIndicatorColor: DarkThemeColors.primary100,
+                    valueIndicatorTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   child: Slider(
                     value: progress,
+                    min: 0.0,
+                    max: 1.0,
+                    divisions: 10, // Creates 11 steps: 0%, 10%, 20%, ..., 100%
+                    label: '${(progress * 100).toInt()}%',
                     onChanged: (value) {
                       setModalState(() {
                         progress = value;
                       });
                     },
                   ),
+                ),
+                const SizedBox(height: 20),
+
+                // Priority Selection
+                _buildLabel('Priority'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildPriorityChip(
+                        label: 'High',
+                        priority: ProjectPriority.high,
+                        selectedPriority: selectedPriority,
+                        onTap: () {
+                          setModalState(() {
+                            selectedPriority = ProjectPriority.high;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildPriorityChip(
+                        label: 'Medium',
+                        priority: ProjectPriority.medium,
+                        selectedPriority: selectedPriority,
+                        onTap: () {
+                          setModalState(() {
+                            selectedPriority = ProjectPriority.medium;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildPriorityChip(
+                        label: 'Low',
+                        priority: ProjectPriority.low,
+                        selectedPriority: selectedPriority,
+                        onTap: () {
+                          setModalState(() {
+                            selectedPriority = ProjectPriority.low;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
 
@@ -219,9 +280,11 @@ class AddProjectDialog {
                           progress: progress,
                           cardColor: selectedColor,
                           category: categoryController.text,
-                          priority: ProjectPriority.medium,
+                          priority: selectedPriority,
                           status: ProjectStatus.ongoing,
-                          userId: Supabase.instance.client.auth.currentUser?.id ?? '',
+                          userId:
+                              Supabase.instance.client.auth.currentUser?.id ??
+                              '',
                         );
                         onProjectCreated(project);
                         Navigator.pop(context);
@@ -324,6 +387,43 @@ class AddProjectDialog {
           borderSide: BorderSide(color: DarkThemeColors.primary100, width: 1.5),
         ),
         suffixIcon: suffixIcon,
+      ),
+    );
+  }
+
+  static Widget _buildPriorityChip({
+    required String label,
+    required ProjectPriority priority,
+    required ProjectPriority selectedPriority,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = priority == selectedPriority;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? DarkThemeColors.primary100
+              : DarkThemeColors.background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? DarkThemeColors.primary100
+                : DarkThemeColors.border,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : DarkThemeColors.textSecondary,
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
       ),
     );
   }
