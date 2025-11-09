@@ -11,6 +11,9 @@ import '../presentation/views/home/home_screen.dart';
 import '../presentation/views/onboarding/onboarding.dart';
 import '../presentation/views/profile/profile.dart';
 import '../presentation/views/splash/splash.dart';
+import '../presentation/views/activity/activity_screen.dart';
+import '../presentation/views/reports/reports_screen.dart';
+import '../presentation/widgets/app_shell_scaffold.dart';
 
 class AppRoutes {
   static const String onboarding = '/onboarding';
@@ -24,10 +27,14 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String splash = '/splash';
   static const String home = '/home';
+  static const String activity = '/activity';
+  static const String reports = '/reports';
+  static const String projectDetails = '/project-details';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
     routes: [
+      // Routes without bottom navigation
       GoRoute(path: splash, builder: (context, state) => const Splash()),
       GoRoute(
         path: onboarding,
@@ -66,11 +73,41 @@ class AppRoutes {
         path: signinVerification,
         builder: (context, state) => const SigninVerification(),
       ),
-      GoRoute(
-        path: profile,
-        builder: (context, state) => const ProfileScreen(),
+
+      // Shell route with bottom navigation for main screens
+      ShellRoute(
+        builder: (context, state, child) {
+          // Determine selected index based on current route
+          int selectedIndex = 0;
+          final location = state.uri.path;
+          if (location.startsWith('/home')) {
+            selectedIndex = 0;
+          } else if (location.startsWith('/activity')) {
+            selectedIndex = 1;
+          } else if (location.startsWith('/reports')) {
+            selectedIndex = 2;
+          } else if (location.startsWith('/profile')) {
+            selectedIndex = 3;
+          }
+
+          return AppShellScaffold(selectedIndex: selectedIndex, child: child);
+        },
+        routes: [
+          GoRoute(path: home, builder: (context, state) => const HomeScreen()),
+          GoRoute(
+            path: activity,
+            builder: (context, state) => const ActivityScreen(),
+          ),
+          GoRoute(
+            path: reports,
+            builder: (context, state) => const ReportsScreen(),
+          ),
+          GoRoute(
+            path: profile,
+            builder: (context, state) => const ProfileScreen(),
+          ),
+        ],
       ),
-      GoRoute(path: home, builder: (context, state) => const HomeScreen()),
     ],
   );
 }
