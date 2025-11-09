@@ -2,6 +2,7 @@ import 'package:dev_flow/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:dev_flow/core/constants/app_colors.dart';
 
 void main() async {
   await dotenv.load(fileName: '.env');
@@ -31,7 +32,14 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       title: 'Dev Flow',
       routerConfig: AppRoutes.router,
-      theme: ThemeData.dark(),
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: Colors.black,
+        colorScheme: ColorScheme.dark(
+          surface: DarkThemeColors.surface,
+          // background: Colors.black,
+          primary: DarkThemeColors.primary100,
+        ),
+      ),
     );
   }
 }
