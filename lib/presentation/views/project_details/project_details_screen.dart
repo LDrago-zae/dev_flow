@@ -5,12 +5,14 @@ import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/core/utils/app_text_styles.dart';
 import 'package:dev_flow/data/models/project_model.dart';
 import 'package:dev_flow/data/models/task_model.dart';
+import 'package:dev_flow/data/models/subtask_model.dart';
 import 'package:dev_flow/data/models/user_model.dart';
 import 'package:dev_flow/presentation/widgets/user_avatar.dart';
 import 'package:dev_flow/presentation/widgets/user_dropdown.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:dev_flow/data/repositories/task_repository.dart';
+import 'package:dev_flow/data/repositories/subtask_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
 import 'dart:async';
 
@@ -42,9 +44,16 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
   // Supabase integration
   final TaskRepository _taskRepository = TaskRepository();
+  final SubtaskRepository _subtaskRepository = SubtaskRepository();
   final RealtimeService _realtimeService = RealtimeService();
   late StreamSubscription<Task> _taskSubscription;
   late StreamSubscription<Project> _projectSubscription;
+
+  // Subtask management
+  Map<String, List<Subtask>> _taskSubtasks = {};
+  Map<String, StreamSubscription<List<Subtask>>> _subtaskSubscriptions = {};
+  final TextEditingController _subtaskController = TextEditingController();
+  String? _addingSubtaskFor; // Track which task is having a subtask added
 
   bool _isLoading = false;
   String? _error;
@@ -104,6 +113,9 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
         _updateFilteredTasks();
         _isLoading = false;
       });
+
+      // Load subtasks for each task
+      await _loadSubtasksForAllTasks();
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -112,11 +124,41 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
   }
 
+  Future<void> _loadSubtasksForAllTasks() async {
+    for (var task in _project.tasks) {
+      await _loadSubtasksForTask(task.id);
+    }
+  }
+
+  Future<void> _loadSubtasksForTask(String taskId) async {
+    try {
+      // Cancel existing subscription if any
+      _subtaskSubscriptions[taskId]?.cancel();
+
+      // Subscribe to real-time subtask updates
+      _subtaskSubscriptions[taskId] = _subtaskRepository
+          .watchSubtasks(taskId)
+          .listen((subtasks) {
+            setState(() {
+              _taskSubtasks[taskId] = subtasks;
+            });
+          });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading subtasks for task $taskId: $e');
+      }
+    }
+  }
+
   @override
   void dispose() {
     _taskTitleController.dispose();
+    _subtaskController.dispose();
     _taskSubscription.cancel();
     _projectSubscription.cancel();
+    for (var subscription in _subtaskSubscriptions.values) {
+      subscription.cancel();
+    }
     _realtimeService.dispose();
     super.dispose();
   }
@@ -241,6 +283,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     });
   }
 
+  // ...existing code...
   Future<void> _addOrUpdateTask() async {
     if (_taskTitleController.text.trim().isEmpty) {
       return;
@@ -254,27 +297,76 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           date: _selectedDate,
           time:
               '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
-          assignedUserId: _selectedTaskUserId,
+          assignedUserId:
+              null, // Set to null until real user management is implemented
         );
 
+        // Optimistically update UI
+        _optimisticUpdateTask(updatedTask);
+
         await _taskRepository.updateTask(updatedTask);
-        // Real-time subscription will update UI
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Task updated successfully'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       } else {
         // Add new task
+        final uuid = Uuid();
+        final currentUser = Supabase.instance.client.auth.currentUser;
+
         final newTask = Task(
-          id: const Uuid().v4(),
+          id: uuid.v4(),
           title: _taskTitleController.text.trim(),
           date: _selectedDate,
           time:
               '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
           isCompleted: false,
-          assignedUserId: _selectedTaskUserId,
+          assignedUserId:
+              null, // Set to null until real user management is implemented
           projectId: _project.id,
-          userId: Supabase.instance.client.auth.currentUser?.id ?? '',
+          userId: currentUser?.id ?? '',
         );
 
+        // Optimistically update UI before API call
+        if (mounted) {
+          setState(() {
+            final updatedTasks = [..._project.tasks, newTask];
+            final completedCount = updatedTasks
+                .where((t) => t.isCompleted)
+                .length;
+            final newProgress = updatedTasks.isEmpty
+                ? 0.0
+                : completedCount / updatedTasks.length;
+
+            _project = _project.copyWith(
+              tasks: updatedTasks,
+              progress: newProgress,
+            );
+            widget.onUpdate(_project);
+            _updateFilteredTasks();
+          });
+        }
+
         await _taskRepository.createTask(newTask);
-        // Real-time subscription will update UI
+
+        // Set up real-time subscription for the new task's subtasks
+        await _loadSubtasksForTask(newTask.id);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Task "${newTask.title}" created successfully'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
 
       _resetDialogState();
@@ -282,13 +374,24 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
+      if (kDebugMode) {
+        print('Error saving task: $e');
+      }
+
+      // Reload data to revert optimistic update
+      await _loadProjectData();
+
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save task: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save task: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
+  // ...existing code...
 
   Future<void> _deleteTask(Task task) async {
     try {
@@ -1087,110 +1190,442 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Dismissible(
-        key: Key(task.id),
-        direction: DismissDirection.endToStart,
-        background: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(Icons.delete, color: Colors.white),
-        ),
-        onDismissed: (direction) {
-          _deleteTask(task);
-        },
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: () => _toggleTaskCompletion(task),
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: task.isCompleted
-                        ? _project.cardColor
-                        : DarkThemeColors.border,
-                    width: 2,
-                  ),
-                  color: task.isCompleted
-                      ? _project.cardColor
-                      : Colors.transparent,
-                ),
-                child: task.isCompleted
-                    ? const Icon(Icons.check, size: 16, color: Colors.white)
-                    : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Dismissible(
+            key: Key(task.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: const Icon(Icons.delete, color: Colors.white),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.title,
-                    style: AppTextStyles.bodyMedium.copyWith(
+            onDismissed: (direction) {
+              _deleteTask(task);
+            },
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _toggleTaskCompletion(task),
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: task.isCompleted
+                            ? _project.cardColor
+                            : DarkThemeColors.border,
+                        width: 2,
+                      ),
                       color: task.isCompleted
-                          ? DarkThemeColors.textSecondary
-                          : DarkThemeColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      decoration: task.isCompleted
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
+                          ? _project.cardColor
+                          : Colors.transparent,
                     ),
+                    child: task.isCompleted
+                        ? const Icon(Icons.check, size: 16, color: Colors.white)
+                        : null,
                   ),
-                  const SizedBox(height: 4),
-                  Row(
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        dateString,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: DarkThemeColors.textSecondary,
+                        task.title,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: task.isCompleted
+                              ? DarkThemeColors.textSecondary
+                              : DarkThemeColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          decoration: task.isCompleted
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'at',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: DarkThemeColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        task.time,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: DarkThemeColors.textSecondary,
-                        ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            dateString,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: DarkThemeColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'at',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: DarkThemeColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            task.time,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: DarkThemeColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    _addingSubtaskFor == task.id ? Icons.close : Icons.add,
+                    size: 20,
+                    color: DarkThemeColors.textSecondary,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _addingSubtaskFor = _addingSubtaskFor == task.id
+                          ? null
+                          : task.id;
+                    });
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Add subtask',
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    Icons.edit,
+                    size: 20,
+                    color: DarkThemeColors.textSecondary,
+                  ),
+                  onPressed: () => _showEditTaskDialog(task),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                UserAvatar(
+                  user: task.assignedUserId != null
+                      ? DummyUsers.getUserById(task.assignedUserId!)
+                      : null,
+                  radius: 16,
+                ),
+              ],
+            ),
+          ),
+          // Subtask input field
+          if (_addingSubtaskFor == task.id)
+            Padding(
+              padding: const EdgeInsets.only(left: 40, top: 8, right: 40),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _subtaskController,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: DarkThemeColors.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Enter subtask title...',
+                        hintStyle: AppTextStyles.bodySmall.copyWith(
+                          color: DarkThemeColors.textSecondary,
+                        ),
+                        filled: true,
+                        fillColor: DarkThemeColors.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                      onSubmitted: (_) => _addSubtask(task.id),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.send, size: 20),
+                    color: _project.cardColor,
+                    onPressed: () => _addSubtask(task.id),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
             ),
-            IconButton(
-              icon: Icon(
-                Icons.edit,
-                size: 20,
-                color: DarkThemeColors.textSecondary,
-              ),
-              onPressed: () => _showEditTaskDialog(task),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-            const SizedBox(width: 8),
-            UserAvatar(
-              user: task.assignedUserId != null
-                  ? DummyUsers.getUserById(task.assignedUserId!)
-                  : null,
-              radius: 16,
-            ),
-          ],
-        ),
+          // Display subtasks
+          if (_taskSubtasks[task.id] != null &&
+              _taskSubtasks[task.id]!.isNotEmpty)
+            _buildSubtasks(task.id),
+        ],
       ),
     );
+  }
+
+  Widget _buildSubtasks(String taskId) {
+    final subtasks = _taskSubtasks[taskId] ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 40, top: 8, right: 40),
+      child: Column(
+        children: subtasks.map((subtask) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _toggleSubtask(subtask.id, !subtask.isCompleted),
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: subtask.isCompleted
+                            ? _project.cardColor
+                            : DarkThemeColors.border,
+                        width: 2,
+                      ),
+                      color: subtask.isCompleted
+                          ? _project.cardColor
+                          : Colors.transparent,
+                    ),
+                    child: subtask.isCompleted
+                        ? const Icon(Icons.check, size: 12, color: Colors.white)
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    subtask.title,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: subtask.isCompleted
+                          ? DarkThemeColors.textSecondary
+                          : DarkThemeColors.textPrimary,
+                      decoration: subtask.isCompleted
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 16,
+                    color: DarkThemeColors.textSecondary,
+                  ),
+                  onPressed: () => _deleteSubtask(subtask.id),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Delete subtask',
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Future<void> _addSubtask(String parentTaskId) async {
+    if (kDebugMode) {
+      print('🔵🔵🔵 _addSubtask method called for task: $parentTaskId');
+    }
+
+    final title = _subtaskController.text.trim();
+
+    if (kDebugMode) {
+      print('🔵 Text from controller: "$title" (isEmpty: ${title.isEmpty})');
+    }
+
+    if (title.isEmpty) {
+      if (kDebugMode) {
+        print('❌ Title is empty, returning early');
+      }
+      return;
+    }
+
+    try {
+      if (kDebugMode) {
+        print('🔵 Starting to add subtask: $title for task: $parentTaskId');
+      }
+
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not authenticated');
+
+      final uuid = Uuid();
+      final subtask = Subtask(
+        id: uuid.v4(),
+        parentTaskId: parentTaskId,
+        title: title,
+        isCompleted: false,
+        createdDate: DateTime.now(),
+        ownerId: userId,
+      );
+
+      if (kDebugMode) {
+        print('🔵 Calling repository to create subtask...');
+      }
+
+      // Immediately add to local list for instant UI update
+      if (mounted) {
+        setState(() {
+          if (_taskSubtasks[parentTaskId] == null) {
+            _taskSubtasks[parentTaskId] = [];
+          }
+          _taskSubtasks[parentTaskId]!.add(subtask);
+        });
+      }
+
+      await _subtaskRepository.createSubtask(subtask);
+
+      if (kDebugMode) {
+        print('🔵 Subtask created, clearing input and closing form');
+      }
+
+      _subtaskController.clear();
+
+      if (mounted) {
+        setState(() {
+          _addingSubtaskFor = null;
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Subtask "$title" added successfully'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error adding subtask: $e');
+      }
+
+      // Remove from local list if creation failed
+      if (mounted) {
+        setState(() {
+          _taskSubtasks[parentTaskId]?.removeWhere((s) => s.title == title);
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add subtask: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleSubtask(String subtaskId, bool isCompleted) async {
+    try {
+      // Immediately update local state for instant UI feedback
+      if (mounted) {
+        setState(() {
+          for (var taskId in _taskSubtasks.keys) {
+            final subtaskIndex = _taskSubtasks[taskId]?.indexWhere(
+              (s) => s.id == subtaskId,
+            );
+            if (subtaskIndex != null && subtaskIndex != -1) {
+              _taskSubtasks[taskId]![subtaskIndex] =
+                  _taskSubtasks[taskId]![subtaskIndex].copyWith(
+                    isCompleted: isCompleted,
+                  );
+              break;
+            }
+          }
+        });
+      }
+
+      await _subtaskRepository.toggleSubtaskCompletion(subtaskId, isCompleted);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error toggling subtask: $e');
+      }
+
+      // Revert the local change if the API call failed
+      if (mounted) {
+        setState(() {
+          for (var taskId in _taskSubtasks.keys) {
+            final subtaskIndex = _taskSubtasks[taskId]?.indexWhere(
+              (s) => s.id == subtaskId,
+            );
+            if (subtaskIndex != null && subtaskIndex != -1) {
+              _taskSubtasks[taskId]![subtaskIndex] =
+                  _taskSubtasks[taskId]![subtaskIndex].copyWith(
+                    isCompleted: !isCompleted,
+                  );
+              break;
+            }
+          }
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update subtask: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteSubtask(String subtaskId) async {
+    // Store the subtask for potential restoration
+    Subtask? deletedSubtask;
+    String? parentTaskId;
+
+    try {
+      // Immediately remove from local state for instant UI feedback
+      if (mounted) {
+        setState(() {
+          for (var taskId in _taskSubtasks.keys) {
+            final subtaskIndex = _taskSubtasks[taskId]?.indexWhere(
+              (s) => s.id == subtaskId,
+            );
+            if (subtaskIndex != null && subtaskIndex != -1) {
+              deletedSubtask = _taskSubtasks[taskId]![subtaskIndex];
+              parentTaskId = taskId;
+              _taskSubtasks[taskId]!.removeAt(subtaskIndex);
+              break;
+            }
+          }
+        });
+      }
+
+      await _subtaskRepository.deleteSubtask(subtaskId);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting subtask: $e');
+      }
+
+      // Restore the subtask if deletion failed
+      if (mounted && deletedSubtask != null && parentTaskId != null) {
+        setState(() {
+          _taskSubtasks[parentTaskId]?.add(deletedSubtask!);
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete subtask: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
