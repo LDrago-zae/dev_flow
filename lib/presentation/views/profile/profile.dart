@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: DarkThemeColors.textSecondary,
       ),
       filled: true,
-      fillColor: DarkThemeColors.background,
+      fillColor: Colors.black,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -86,7 +86,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (picked != null) {
-      final formatted = '${picked.day.toString().padLeft(2, '0')}/'
+      final formatted =
+          '${picked.day.toString().padLeft(2, '0')}/'
           '${picked.month.toString().padLeft(2, '0')}/'
           '${picked.year.toString()}';
       _dobController.text = formatted;
@@ -106,14 +107,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DarkThemeColors.background,
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: DarkThemeColors.background,
+        backgroundColor: Colors.black,
         elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-        ),
+        // leading: IconButton(
+        //   onPressed: () => Navigator.of(context).maybePop(),
+        //   icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+        // ),
         centerTitle: true,
         title: Text(
           'Fill Your Profile',
@@ -135,13 +136,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      CircleAvatar(
-                        radius: 54,
-                        backgroundColor: DarkThemeColors.surface,
-                        child: Icon(
-                          Icons.person,
-                          size: 48,
-                          color: DarkThemeColors.textSecondary,
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: DarkThemeColors.border,
+                            width: 2,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: CircleAvatar(
+                          radius: 54,
+                          backgroundColor: Colors.black,
+                          child: Icon(
+                            Icons.person,
+                            size: 48,
+                            color: DarkThemeColors.textSecondary,
+                          ),
                         ),
                       ),
                       Positioned(
@@ -153,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             color: DarkThemeColors.primary100,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: DarkThemeColors.background,
+                              color: DarkThemeColors.border,
                               width: 2,
                             ),
                           ),
@@ -248,10 +258,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            '🇺🇸',
-                            style: TextStyle(fontSize: 18),
-                          ),
+                          const Text('🇺🇸', style: TextStyle(fontSize: 18)),
                           const SizedBox(width: 6),
                           Text(
                             '+1',
@@ -270,8 +277,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
-                    prefixIconConstraints:
-                        const BoxConstraints(minWidth: 0, minHeight: 0),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 0,
+                      minHeight: 0,
+                    ),
                   ),
                 ),
 

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/data/models/project_model.dart';
 import 'package:dev_flow/data/models/task_model.dart';
 import 'package:dev_flow/presentation/widgets/custom_search_bar.dart';
 import 'package:dev_flow/presentation/widgets/project_card.dart';
-import 'package:dev_flow/presentation/widgets/task_item.dart';
 import 'package:dev_flow/presentation/widgets/home/home_header.dart';
 import 'package:dev_flow/presentation/widgets/home/section_header.dart';
 import 'package:dev_flow/presentation/widgets/home/quick_todo_list.dart';
@@ -28,8 +26,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedBottomNavIndex = 0;
-
   // Supabase integration
   final ProjectRepository _projectRepository = ProjectRepository();
   final TaskRepository _taskRepository = TaskRepository();
@@ -44,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   String? _error;
   String _userName = 'User';
+  String _selectedFilter = 'All'; // For filtering quick todos
 
   @override
   void initState() {
@@ -121,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: DarkThemeColors.background,
+        backgroundColor: Colors.black,
         body: const Center(
           child: CircularProgressIndicator(color: DarkThemeColors.primary100),
         ),
@@ -130,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: DarkThemeColors.background,
+        backgroundColor: Colors.black,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -170,12 +167,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      backgroundColor: DarkThemeColors.background,
+      backgroundColor: Colors.black,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           showModalBottomSheet(
             context: context,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Colors.black,
             builder: (context) => FabOptionsDialog(
               onAddProject: () {
                 // Capture the context before async operations
@@ -283,36 +280,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 24),
 
                 // Quick Todos Section
-                if (_quickTodos.isNotEmpty) ...[
-                  SectionHeader(
-                    title: 'Quick Todos',
-                    actionText: 'See All',
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 16),
-                  QuickTodoList(
-                    todos: _quickTodos,
-                    onTodoTap: (todo) async {
-                      try {
-                        final updatedTodo = todo.copyWith(
-                          isCompleted: !todo.isCompleted,
-                        );
-                        await _taskRepository.updateTask(updatedTodo);
-                        // Real-time subscription will update the UI
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to update todo: $e')),
-                        );
-                      }
-                    },
-                    formatDate: _formatDate,
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // To Do List Section
                 SectionHeader(
-                  title: 'To Do List',
+                  title: 'Quick Todos',
                   actionText: 'See All',
                   isDark: isDark,
                 ),
@@ -322,14 +291,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildFilterChips(),
                 const SizedBox(height: 16),
 
-                // Task List
-                _buildTaskList(),
+                // Quick Todos List
+                _buildQuickTodosList(),
               ],
             ),
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(isDark),
     );
   }
 
@@ -389,55 +357,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _taskSubscription.cancel();
     _realtimeService.dispose();
     super.dispose();
-  }
-
-  Widget _buildTaskList() {
-    return Column(
-      children: [
-        TaskItem(
-          title: 'Complete Website Redesign',
-          subtitle: 'Design Project',
-          date: 'January 5, 2025',
-          time: '10:00 AM',
-          onTap: () {},
-        ),
-        TaskItem(
-          title: 'Marketing Campaign Launch',
-          subtitle: 'Campaign Launch',
-          date: 'January 10, 2025',
-          time: '02:30 PM',
-          onTap: () {},
-        ),
-        TaskItem(
-          title: 'Client Meeting Preparation',
-          subtitle: 'Client Meeting',
-          date: 'January 8, 2025',
-          time: '11:00 AM',
-          onTap: () {},
-        ),
-        TaskItem(
-          title: 'Budget Proposal Submission',
-          subtitle: 'Budget Proposal',
-          date: 'January 7, 2025',
-          time: '3:00 PM',
-          onTap: () {},
-        ),
-        TaskItem(
-          title: 'Content Creation for Social Media',
-          subtitle: 'Marketing Campaign',
-          date: 'January 12, 2025',
-          time: '9:30 AM',
-          onTap: () {},
-        ),
-        TaskItem(
-          title: 'Code Review and Debugging',
-          subtitle: 'Software Development',
-          date: 'January 14, 2025',
-          time: '8:00 AM',
-          onTap: () {},
-        ),
-      ],
-    );
   }
 
   Widget _buildProjectsList() {
@@ -515,96 +434,102 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  Widget _buildBottomNavigationBar(bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-        color: DarkThemeColors.background,
-        border: Border(
-          top: BorderSide(color: DarkThemeColors.surface, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 3),
-          child: GNav(
-            curve: Curves.easeInOut,
-            selectedIndex: _selectedBottomNavIndex,
-            onTabChange: (index) {
-              setState(() {
-                _selectedBottomNavIndex = index;
-              });
-            },
-            gap: 8,
-            activeColor: isDark
-                ? DarkThemeColors.primary100
-                : LightThemeColors.primary300,
-            iconSize: 24,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            duration: const Duration(milliseconds: 400),
-            tabBackgroundColor: isDark
-                ? DarkThemeColors.primary100.withOpacity(0.1)
-                : LightThemeColors.primary300.withOpacity(0.1),
-            color: isDark
-                ? DarkThemeColors.textSecondary
-                : LightThemeColors.textSecondary,
-            tabs: const [
-              GButton(icon: Icons.home_max_rounded, text: 'Home'),
-              GButton(icon: Icons.folder_open_outlined, text: 'Projects'),
-              GButton(icon: Icons.assessment_outlined, text: 'Reports'),
-              GButton(icon: Icons.person_outline, text: 'Profile'),
-            ],
-          ),
-        ),
+  Widget _buildFilterChips() {
+    final filters = ['All', 'Pending', 'Completed'];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: filters.map((filter) {
+          final isSelected = _selectedFilter == filter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(filter),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedFilter = filter;
+                });
+              },
+              backgroundColor: Colors.black,
+              selectedColor: DarkThemeColors.surface,
+              checkmarkColor: DarkThemeColors.primary100,
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildFilterChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          FilterChip(
-            label: Text('All'),
-            selected: true,
-            onSelected: (selected) {},
-            backgroundColor: DarkThemeColors.surface,
-            selectedColor: DarkThemeColors.primary100.withOpacity(0.2),
-            checkmarkColor: DarkThemeColors.primary100,
-          ),
-          const SizedBox(width: 8),
-          FilterChip(
-            label: Text('Pending'),
-            selected: false,
-            onSelected: (selected) {},
-            backgroundColor: DarkThemeColors.surface,
-            selectedColor: DarkThemeColors.primary100.withOpacity(0.2),
-            checkmarkColor: DarkThemeColors.primary100,
-          ),
-          const SizedBox(width: 8),
-          FilterChip(
-            label: Text('In Progress'),
-            selected: false,
-            onSelected: (selected) {},
-            backgroundColor: DarkThemeColors.surface,
-            selectedColor: DarkThemeColors.primary100.withOpacity(0.2),
-            checkmarkColor: DarkThemeColors.primary100,
-          ),
-          const SizedBox(width: 8),
-          FilterChip(
-            label: Text('Completed'),
-            selected: false,
-            onSelected: (selected) {},
-            backgroundColor: DarkThemeColors.surface,
-            selectedColor: DarkThemeColors.primary100.withOpacity(0.2),
-            checkmarkColor: DarkThemeColors.primary100,
-          ),
-        ],
-      ),
+  List<Task> _getFilteredQuickTodos() {
+    if (_selectedFilter == 'All') {
+      return _quickTodos;
+    } else if (_selectedFilter == 'Pending') {
+      return _quickTodos.where((todo) => !todo.isCompleted).toList();
+    } else if (_selectedFilter == 'Completed') {
+      return _quickTodos.where((todo) => todo.isCompleted).toList();
+    }
+    return _quickTodos;
+  }
+
+  Widget _buildQuickTodosList() {
+    final filteredTodos = _getFilteredQuickTodos();
+
+    if (filteredTodos.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: DarkThemeColors.border, width: 1),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.task_alt,
+              size: 48,
+              color: DarkThemeColors.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _quickTodos.isEmpty
+                  ? '✨ Start conquering your day!'
+                  : 'No ${_selectedFilter.toLowerCase()} todos',
+              style: const TextStyle(
+                color: DarkThemeColors.textSecondary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tap the + button to add your quick tasks',
+              style: TextStyle(
+                color: DarkThemeColors.textSecondary,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return QuickTodoList(
+      todos: filteredTodos,
+      onTodoTap: (todo) async {
+        try {
+          final updatedTodo = todo.copyWith(isCompleted: !todo.isCompleted);
+          await _taskRepository.updateTask(updatedTodo);
+          // Real-time subscription will update the UI
+        } catch (e) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to update todo: $e')));
+        }
+      },
+      formatDate: _formatDate,
     );
   }
 }
