@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dev_flow/data/models/project_model.dart';
 
 class ProjectCard extends StatelessWidget {
   final String title;
@@ -7,6 +8,7 @@ class ProjectCard extends StatelessWidget {
   final double progress;
   final Color cardColor;
   final String category;
+  final ProjectPriority priority;
   final VoidCallback? onTap;
 
   const ProjectCard({
@@ -16,6 +18,7 @@ class ProjectCard extends StatelessWidget {
     required this.deadline,
     required this.progress,
     required this.category,
+    required this.priority,
     this.cardColor = const Color(0xFF0062FF),
     this.onTap,
   });
@@ -37,17 +40,21 @@ class ProjectCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    category,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    priority.name.toLowerCase(),
+                    style: TextStyle(
+                      color: cardColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
@@ -85,37 +92,65 @@ class ProjectCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 16),
+            // Staggered Progress Bar
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: (0)),
+              child: _buildStaggeredProgress(),
+            ),
+            const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Icon(
-                  Icons.calendar_today,
-                  color: Colors.white,
-                  size: 14,
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      deadline,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
                 Text(
-                  deadline,
+                  '${(progress * 100).toInt()}%',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: progress,
-                backgroundColor: Colors.white.withValues(alpha: 0.3),
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                minHeight: 6,
-              ),
             ),
           ],
         ),
       ),
     );
   }
-}
 
+  Widget _buildStaggeredProgress() {
+    const int segments = 10;
+    return Row(
+      children: List.generate(segments, (index) {
+        final segmentProgress = (index + 1) / segments;
+        final isFilled = progress >= segmentProgress;
+
+        return Expanded(
+          child: Container(
+            margin: EdgeInsets.only(right: index < segments - 1 ? 3 : 0),
+            height: 6,
+            decoration: BoxDecoration(
+              color: isFilled
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}

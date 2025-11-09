@@ -475,6 +475,7 @@ class _HomeScreenState extends State<HomeScreen> {
             progress: project.progress,
             cardColor: project.cardColor,
             category: project.category,
+            priority: project.priority,
             onTap: () async {
               await Navigator.push(
                 context,
@@ -551,9 +552,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? DarkThemeColors.textSecondary
                 : LightThemeColors.textSecondary,
             tabs: const [
-              GButton(icon: Icons.home_outlined, text: 'Home'),
-              GButton(icon: Icons.show_chart_outlined, text: 'Activity'),
-              GButton(icon: Icons.calendar_today_outlined, text: 'Timeline'),
+              GButton(icon: Icons.home_max_rounded, text: 'Home'),
+              GButton(icon: Icons.folder_open_outlined, text: 'Projects'),
+              GButton(icon: Icons.assessment_outlined, text: 'Reports'),
               GButton(icon: Icons.person_outline, text: 'Profile'),
             ],
           ),
