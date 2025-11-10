@@ -7,6 +7,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../routes/app_routes.dart';
+import '../../../../services/auth_service.dart';
 
 class SignIn extends StatefulWidget {
   const SignIn({super.key});
@@ -225,10 +226,11 @@ class _SignInState extends State<SignIn> {
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
                         try {
-                          await Supabase.instance.client.auth.signInWithPassword(
-                            email: emailController.text.trim(),
-                            password: passwordController.text.trim(),
-                          );
+                          await Supabase.instance.client.auth
+                              .signInWithPassword(
+                                email: emailController.text.trim(),
+                                password: passwordController.text.trim(),
+                              );
                           if (mounted) {
                             context.go(AppRoutes.home);
                           }
@@ -286,9 +288,7 @@ class _SignInState extends State<SignIn> {
                 // Social sign-in buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    _GoogleButton(),
-                  ],
+                  children: const [_GoogleButton()],
                 ),
 
                 const SizedBox(height: 24),
@@ -329,36 +329,102 @@ class _SignInState extends State<SignIn> {
   }
 }
 
-class _GoogleButton extends StatelessWidget {
+class _GoogleButton extends StatefulWidget {
   const _GoogleButton();
 
   @override
+  State<_GoogleButton> createState() => _GoogleButtonState();
+}
+
+class _GoogleButtonState extends State<_GoogleButton> {
+  bool _isLoading = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: DarkThemeColors.dark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DarkThemeColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FaIcon(
-            FontAwesomeIcons.google,
-            color: DarkThemeColors.light,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Continue with Google',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: DarkThemeColors.textPrimary,
-              fontWeight: FontWeight.w500,
+    return GestureDetector(
+      onTap: _isLoading
+          ? null
+          : () async {
+              setState(() => _isLoading = true);
+
+              try {
+                // Use the singleton instance (already initialized in main.dart)
+                final authService = AuthService();
+                final success = await authService.signInWithGoogle();
+
+                if (!mounted) return;
+
+                if (success) {
+                  // Verify user is authenticated
+                  final user = Supabase.instance.client.auth.currentUser;
+
+                  if (user != null) {
+                    debugPrint(
+                      'Navigation to home: User authenticated: ${user.email}',
+                    );
+                    // Navigate to home screen
+                    context.go(AppRoutes.home);
+                  } else {
+                    throw Exception(
+                      'Authentication succeeded but no user found',
+                    );
+                  }
+                } else {
+                  // User cancelled sign-in
+                  setState(() => _isLoading = false);
+                }
+              } catch (e) {
+                setState(() => _isLoading = false);
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Google sign-in failed: ${e.toString()}'),
+                      backgroundColor: DarkThemeColors.error,
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                }
+              }
+            },
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: DarkThemeColors.dark,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: DarkThemeColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isLoading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    DarkThemeColors.primary100,
+                  ),
+                ),
+              )
+            else
+              FaIcon(
+                FontAwesomeIcons.google,
+                color: DarkThemeColors.light,
+                size: 20,
+              ),
+            const SizedBox(width: 12),
+            Text(
+              _isLoading ? 'Signing in...' : 'Continue with Google',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: DarkThemeColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

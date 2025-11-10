@@ -8,6 +8,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../routes/app_routes.dart';
+import '../../../../services/auth_service.dart';
 
 class Signup extends StatefulWidget {
   const Signup({super.key});
@@ -426,31 +427,56 @@ class _GoogleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: DarkThemeColors.dark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DarkThemeColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FaIcon(
-            FontAwesomeIcons.google,
-            color: DarkThemeColors.light,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Continue with Google',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: DarkThemeColors.textPrimary,
-              fontWeight: FontWeight.w500,
+    return GestureDetector(
+      onTap: () async {
+        try {
+          final authService = AuthService();
+          final success = await authService.signInWithGoogle();
+
+          if (success && context.mounted) {
+            // Check if user is authenticated
+            final user = Supabase.instance.client.auth.currentUser;
+            if (user != null) {
+              context.go(AppRoutes.home);
+            }
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Google sign-in failed: ${e.toString()}'),
+                backgroundColor: DarkThemeColors.error,
+              ),
+            );
+          }
+        }
+      },
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: DarkThemeColors.dark,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: DarkThemeColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FaIcon(
+              FontAwesomeIcons.google,
+              color: DarkThemeColors.light,
+              size: 20,
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Text(
+              'Continue with Google',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: DarkThemeColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
