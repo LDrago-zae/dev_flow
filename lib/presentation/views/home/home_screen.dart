@@ -14,6 +14,8 @@ import 'package:dev_flow/presentation/views/project_details/project_details_scre
 import 'package:dev_flow/data/repositories/project_repository.dart';
 import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
+import 'package:dev_flow/presentation/widgets/responsive_layout.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -115,15 +117,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: const Center(
-          child: CircularProgressIndicator(color: DarkThemeColors.primary100),
-        ),
-      );
-    }
 
     if (_error != null) {
       return Scaffold(
@@ -249,53 +242,62 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Section with logout
-                HomeHeader(
-                  userName: _userName,
-                  isDark: isDark,
-                  onLogout: () async {
-                    await Supabase.instance.client.auth.signOut();
-                  },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Skeletonizer(
+              enabled: _isLoading,
+              child: ResponsiveLayout(
+                padding: EdgeInsets.zero,
+                child: SingleChildScrollView(
+                  child: ResponsiveLayout(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header Section with logout
+                        HomeHeader(
+                          userName: _userName,
+                          isDark: isDark,
+                          onLogout: () async {
+                            await Supabase.instance.client.auth.signOut();
+                          },
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Search Bar
+                        const CustomSearchBar(hintText: 'Search your project'),
+                        const SizedBox(height: 24),
+
+                        // Your Project Section
+                        SectionHeader(
+                          title: 'Your Project',
+                          actionText: 'See All',
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildProjectsList(constraints),
+                        const SizedBox(height: 24),
+
+                        // Quick Todos Section
+                        SectionHeader(
+                          title: 'Quick Todos',
+                          actionText: 'See All',
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Filter Chips
+                        _buildFilterChips(),
+                        const SizedBox(height: 16),
+
+                        // Quick Todos List
+                        _buildQuickTodosList(),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 24),
-
-                // Search Bar
-                const CustomSearchBar(hintText: 'Search your project'),
-                const SizedBox(height: 24),
-
-                // Your Project Section
-                SectionHeader(
-                  title: 'Your Project',
-                  actionText: 'See All',
-                  isDark: isDark,
-                ),
-                const SizedBox(height: 16),
-                _buildProjectsList(),
-                const SizedBox(height: 24),
-
-                // Quick Todos Section
-                SectionHeader(
-                  title: 'Quick Todos',
-                  actionText: 'See All',
-                  isDark: isDark,
-                ),
-                const SizedBox(height: 16),
-
-                // Filter Chips
-                _buildFilterChips(),
-                const SizedBox(height: 16),
-
-                // Quick Todos List
-                _buildQuickTodosList(),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -359,30 +361,55 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Widget _buildProjectsList() {
-    if (_projects.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: DarkThemeColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: DarkThemeColors.border),
-        ),
-        child: Center(
-          child: Text(
-            'No projects yet. Tap the + button to add one!',
-            style: TextStyle(
-              color: DarkThemeColors.textSecondary,
-              fontSize: 14,
+  Widget _buildProjectsList(BoxConstraints constraints) {
+    if (_projects.isEmpty && !_isLoading) {
+      return Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.folder_open,
+              size: 64,
+              color: DarkThemeColors.textSecondary.withValues(alpha: 0.5),
             ),
-            textAlign: TextAlign.center,
-          ),
+            const SizedBox(height: 16),
+            Text(
+              'No projects yet',
+              style: TextStyle(
+                color: DarkThemeColors.textSecondary,
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
       );
     }
 
+    // Show skeleton items when loading
+    final projectsToDisplay = _isLoading && _projects.isEmpty
+        ? List.generate(
+            2,
+            (index) => Project(
+              id: 'skeleton_$index',
+              title: 'Loading Project Title',
+              description: 'Loading project description text here',
+              deadline: DateTime.now()
+                  .add(const Duration(days: 7))
+                  .toIso8601String()
+                  .split('T')[0],
+              createdDate: DateTime.now(),
+              progress: 0.5,
+              tasks: [],
+              userId: '',
+              cardColor: DarkThemeColors.primary100,
+              category: 'Development',
+              priority: ProjectPriority.medium,
+              status: ProjectStatus.ongoing,
+            ),
+          )
+        : _projects;
+
     return Column(
-      children: _projects.asMap().entries.map((entry) {
+      children: projectsToDisplay.asMap().entries.map((entry) {
         final index = entry.key;
         final project = entry.value;
         return Padding(
@@ -395,21 +422,23 @@ class _HomeScreenState extends State<HomeScreen> {
             cardColor: project.cardColor,
             category: project.category,
             priority: project.priority,
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProjectDetailsScreen(
-                    project: project,
-                    onUpdate: (updated) {
-                      setState(() {
-                        _projects[index] = updated;
-                      });
-                    },
-                  ),
-                ),
-              );
-            },
+            onTap: _isLoading
+                ? () {}
+                : () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProjectDetailsScreen(
+                          project: project,
+                          onUpdate: (updated) {
+                            setState(() {
+                              _projects[index] = updated;
+                            });
+                          },
+                        ),
+                      ),
+                    );
+                  },
           ),
         );
       }).toList(),
@@ -461,21 +490,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<Task> _getFilteredQuickTodos() {
-    if (_selectedFilter == 'All') {
-      return _quickTodos;
-    } else if (_selectedFilter == 'Pending') {
-      return _quickTodos.where((todo) => !todo.isCompleted).toList();
-    } else if (_selectedFilter == 'Completed') {
-      return _quickTodos.where((todo) => todo.isCompleted).toList();
-    }
-    return _quickTodos;
-  }
-
   Widget _buildQuickTodosList() {
-    final filteredTodos = _getFilteredQuickTodos();
+    final filteredTodos = _quickTodos.where((todo) {
+      if (_selectedFilter == 'All') return true;
+      if (_selectedFilter == 'Completed') return todo.completed;
+      if (_selectedFilter == 'Pending') return !todo.completed;
+      return true;
+    }).toList();
 
-    if (filteredTodos.isEmpty) {
+    if (filteredTodos.isEmpty && !_isLoading) {
       return Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
@@ -516,17 +539,58 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    // Show skeleton items when loading
+    final todosToDisplay = _isLoading && filteredTodos.isEmpty
+        ? List.generate(
+            3,
+            (index) => Task(
+              id: 'skeleton_$index',
+              title: 'Loading Todo Title',
+              date: DateTime.now(),
+              time: '09:00',
+              userId: '',
+            ),
+          )
+        : filteredTodos;
+
     return QuickTodoList(
-      todos: filteredTodos,
+      todos: todosToDisplay,
       onTodoTap: (todo) async {
         try {
-          final updatedTodo = todo.copyWith(isCompleted: !todo.isCompleted);
+          final now = DateTime.now();
+          final isNowCompleted = !todo.completed;
+          final updatedTodo = todo.copyWith(
+            isCompleted: isNowCompleted,
+            completed: isNowCompleted,
+            completedAt: isNowCompleted ? now : null,
+            clearCompletedAt: !isNowCompleted,
+          );
+
+          // Optimistic update - update UI immediately
+          setState(() {
+            final index = _quickTodos.indexWhere((t) => t.id == todo.id);
+            if (index != -1) {
+              _quickTodos[index] = updatedTodo;
+            }
+          });
+
+          // Update in database
           await _taskRepository.updateTask(updatedTodo);
-          // Real-time subscription will update the UI
+          // Real-time subscription will handle the final update
         } catch (e) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to update todo: $e')));
+          // Revert optimistic update on error
+          setState(() {
+            final index = _quickTodos.indexWhere((t) => t.id == todo.id);
+            if (index != -1) {
+              _quickTodos[index] = todo;
+            }
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to update todo: $e')),
+            );
+          }
         }
       },
       formatDate: _formatDate,

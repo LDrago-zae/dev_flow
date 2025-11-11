@@ -342,51 +342,58 @@ class _GoogleButtonState extends State<_GoogleButton> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _isLoading
-          ? null
-          : () async {
-              setState(() => _isLoading = true);
+      onTap: () async {
+        if (_isLoading) return;
 
-              try {
-                // Use the singleton instance (already initialized in main.dart)
-                final authService = AuthService();
-                final success = await authService.signInWithGoogle();
+        setState(() => _isLoading = true);
 
-                if (!mounted) return;
+        try {
+          final authService = AuthService();
+          final success = await authService.signInWithGoogle();
 
-                if (success) {
-                  // Verify user is authenticated
-                  final user = Supabase.instance.client.auth.currentUser;
+          if (!mounted) return;
 
-                  if (user != null) {
-                    debugPrint(
-                      'Navigation to home: User authenticated: ${user.email}',
-                    );
-                    // Navigate to home screen
-                    context.go(AppRoutes.home);
-                  } else {
-                    throw Exception(
-                      'Authentication succeeded but no user found',
-                    );
-                  }
-                } else {
-                  // User cancelled sign-in
-                  setState(() => _isLoading = false);
-                }
-              } catch (e) {
-                setState(() => _isLoading = false);
+          if (success) {
+            context.go(AppRoutes.home);
+          } else {
+            setState(() => _isLoading = false);
+            // Show error message from auth service
+            final errorMsg = authService.errorMessage;
+            if (errorMsg.isNotEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(errorMsg),
+                  backgroundColor: DarkThemeColors.error,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Google sign in failed. Please try again.'),
+                  backgroundColor: DarkThemeColors.error,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            }
+          }
+        } catch (e, stackTrace) {
+          if (!mounted) return;
 
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Google sign-in failed: ${e.toString()}'),
-                      backgroundColor: DarkThemeColors.error,
-                      duration: const Duration(seconds: 5),
-                    ),
-                  );
-                }
-              }
-            },
+          setState(() => _isLoading = false);
+          
+          print('❌ Sign-In Screen Error: $e');
+          print('Stack trace: $stackTrace');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Google sign in failed: ${e.toString()}'),
+              backgroundColor: DarkThemeColors.error,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      },
       child: Container(
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 16),
