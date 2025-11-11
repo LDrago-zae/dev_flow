@@ -45,5 +45,31 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Google Sign-In Configuration -->
+	<!-- TODO: Replace YOUR_IOS_CLIENT_ID with your actual iOS OAuth Client ID from Google Cloud Console -->
+	<key>GIDClientID</key>
+	<string>YOUR_IOS_CLIENT_ID</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Replace with your reversed iOS client ID from Google Cloud Console -->
+				<!-- Format: com.googleusercontent.apps.YOUR_CLIENT_ID -->
+				<string>com.googleusercontent.apps.YOUR_IOS_CLIENT_ID</string>
+			</array>
+		</dict>
+		<!-- Deep linking for Supabase OAuth callback -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.techsprout.devflow</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
