@@ -13,7 +13,10 @@ import '../presentation/views/profile/profile.dart';
 import '../presentation/views/splash/splash.dart';
 import '../presentation/views/activity/activity_screen.dart';
 import '../presentation/views/reports/reports_screen.dart';
+import '../presentation/views/news/news_screen.dart';
+import '../presentation/views/news/news_detail_screen.dart';
 import '../presentation/widgets/app_shell_scaffold.dart';
+import '../data/models/news_model.dart';
 
 class AppRoutes {
   static const String onboarding = '/onboarding';
@@ -29,6 +32,7 @@ class AppRoutes {
   static const String home = '/home';
   static const String activity = '/activity';
   static const String reports = '/reports';
+  static const String news = '/news';
   static const String projectDetails = '/project-details';
 
   static final GoRouter router = GoRouter(
@@ -86,8 +90,10 @@ class AppRoutes {
             selectedIndex = 1;
           } else if (location.startsWith('/reports')) {
             selectedIndex = 2;
-          } else if (location.startsWith('/profile')) {
+          } else if (location.startsWith('/news')) {
             selectedIndex = 3;
+          } else if (location.startsWith('/profile')) {
+            selectedIndex = 4;
           }
 
           return AppShellScaffold(selectedIndex: selectedIndex, child: child);
@@ -101,6 +107,21 @@ class AppRoutes {
           GoRoute(
             path: reports,
             builder: (context, state) => const ReportsScreen(),
+          ),
+          GoRoute(
+            path: news,
+            builder: (context, state) => const NewsScreen(),
+          ),
+          GoRoute(
+            path: '$news/:url',
+            builder: (context, state) {
+              final article = state.extra as NewsArticle?;
+              if (article != null) {
+                return NewsDetailScreen(article: article);
+              }
+              // Fallback if article not passed
+              return const NewsScreen();
+            },
           ),
           GoRoute(
             path: profile,
