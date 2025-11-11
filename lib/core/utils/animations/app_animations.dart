@@ -135,7 +135,6 @@ class AppAnimations {
       pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionDuration: duration,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final curveTween = CurveTween(curve: curve);
         final curvedAnimation = CurvedAnimation(
           parent: animation,
           curve: curve,
