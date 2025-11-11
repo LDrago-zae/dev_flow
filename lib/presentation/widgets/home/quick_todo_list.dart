@@ -30,6 +30,7 @@ class QuickTodoList extends StatelessWidget {
                   subtitle: 'Quick Todo',
                   date: formatDate(todo.date),
                   time: todo.time,
+                  isCompleted: todo.completed,
                   onTap: () => onTodoTap(todo),
                 ),
               ),
