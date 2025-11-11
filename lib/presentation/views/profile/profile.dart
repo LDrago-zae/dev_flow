@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_text_styles.dart';
 import '../../../routes/app_routes.dart';
+import '../../../presentation/widgets/responsive_layout.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -125,196 +126,209 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Stack(
-                    clipBehavior: Clip.none,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 24,
+                ),
+                child: ResponsiveLayout(
+                  centerContent: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: DarkThemeColors.border,
-                            width: 2,
-                          ),
-                          shape: BoxShape.circle,
+                      Center(
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: DarkThemeColors.border,
+                                  width: 2,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: CircleAvatar(
+                                radius: 54,
+                                backgroundColor: Colors.black,
+                                child: Icon(
+                                  Icons.person,
+                                  size: 48,
+                                  color: DarkThemeColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: -2,
+                              right: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: DarkThemeColors.primary100,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: DarkThemeColors.border,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.edit,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        child: CircleAvatar(
-                          radius: 54,
-                          backgroundColor: Colors.black,
-                          child: Icon(
-                            Icons.person,
-                            size: 48,
-                            color: DarkThemeColors.textSecondary,
+                      ),
+                      const SizedBox(height: 32),
+
+                      _buildLabel('Full Name'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _fullNameController,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: DarkThemeColors.light,
+                        ),
+                        decoration: _inputDecoration('Full Name'),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _buildLabel('Username'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _usernameController,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: DarkThemeColors.light,
+                        ),
+                        decoration: _inputDecoration('Username'),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _buildLabel('Date of Birth'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _dobController,
+                        readOnly: true,
+                        onTap: _pickDateOfBirth,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: DarkThemeColors.light,
+                        ),
+                        decoration: _inputDecoration('Date of Birth').copyWith(
+                          suffixIcon: const Icon(
+                            Icons.calendar_today_outlined,
+                            color: DarkThemeColors.icon,
                           ),
                         ),
                       ),
-                      Positioned(
-                        bottom: -2,
-                        right: -2,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: DarkThemeColors.primary100,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: DarkThemeColors.border,
-                              width: 2,
+
+                      const SizedBox(height: 20),
+
+                      _buildLabel('Email'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: DarkThemeColors.light,
+                        ),
+                        decoration: _inputDecoration('Email').copyWith(
+                          suffixIcon: const Icon(
+                            Icons.mail_outline,
+                            color: DarkThemeColors.icon,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      _buildLabel('Phone Number'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: DarkThemeColors.light,
+                        ),
+                        decoration: _inputDecoration('Phone Number').copyWith(
+                          prefixIcon: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  '🇺🇸',
+                                  style: TextStyle(fontSize: 18),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '+1',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: DarkThemeColors.light,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 1,
+                                  height: 24,
+                                  color: DarkThemeColors.border,
+                                ),
+                                const SizedBox(width: 8),
+                              ],
                             ),
                           ),
-                          child: const Icon(
-                            Icons.edit,
-                            size: 16,
-                            color: Colors.white,
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: 0,
+                            minHeight: 0,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: DarkThemeColors.primary100,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () {
+                            if (_formKey.currentState?.validate() ?? false) {
+                              // TODO: Handle profile submission
+                              context.go(AppRoutes.home);
+                            }
+                          },
+                          child: Text(
+                            'Continue',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
-
-                _buildLabel('Full Name'),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _fullNameController,
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: DarkThemeColors.light,
-                  ),
-                  decoration: _inputDecoration('Full Name'),
-                ),
-
-                const SizedBox(height: 20),
-
-                _buildLabel('Username'),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _usernameController,
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: DarkThemeColors.light,
-                  ),
-                  decoration: _inputDecoration('Username'),
-                ),
-
-                const SizedBox(height: 20),
-
-                _buildLabel('Date of Birth'),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _dobController,
-                  readOnly: true,
-                  onTap: _pickDateOfBirth,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: DarkThemeColors.light,
-                  ),
-                  decoration: _inputDecoration('Date of Birth').copyWith(
-                    suffixIcon: const Icon(
-                      Icons.calendar_today_outlined,
-                      color: DarkThemeColors.icon,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                _buildLabel('Email'),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: DarkThemeColors.light,
-                  ),
-                  decoration: _inputDecoration('Email').copyWith(
-                    suffixIcon: const Icon(
-                      Icons.mail_outline,
-                      color: DarkThemeColors.icon,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                _buildLabel('Phone Number'),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: DarkThemeColors.light,
-                  ),
-                  decoration: _inputDecoration('Phone Number').copyWith(
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('🇺🇸', style: TextStyle(fontSize: 18)),
-                          const SizedBox(width: 6),
-                          Text(
-                            '+1',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: DarkThemeColors.light,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            width: 1,
-                            height: 24,
-                            color: DarkThemeColors.border,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ),
-                    ),
-                    prefixIconConstraints: const BoxConstraints(
-                      minWidth: 0,
-                      minHeight: 0,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DarkThemeColors.primary100,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      if (_formKey.currentState?.validate() ?? false) {
-                        // TODO: Handle profile submission
-                        context.go(AppRoutes.home);
-                      }
-                    },
-                    child: Text(
-                      'Continue',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
