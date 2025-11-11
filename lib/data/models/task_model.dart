@@ -7,6 +7,8 @@ class Task {
   final DateTime date;
   final String time;
   final bool isCompleted;
+  final bool completed; // New field for Supabase
+  final DateTime? completedAt; // New field for Supabase
   final String? assignedUserId;
   final String? projectId;
   final String userId;
@@ -28,6 +30,8 @@ class Task {
     required this.date,
     required this.time,
     this.isCompleted = false,
+    bool? completed,
+    this.completedAt,
     this.assignedUserId,
     this.projectId,
     required this.userId,
@@ -42,7 +46,7 @@ class Task {
     this.estimatedMinutes,
     this.attachments = const [],
     this.comments = const [],
-  });
+  }) : completed = completed ?? isCompleted;
 
   Task copyWith({
     String? id,
@@ -50,6 +54,9 @@ class Task {
     DateTime? date,
     String? time,
     bool? isCompleted,
+    bool? completed,
+    DateTime? completedAt,
+    bool clearCompletedAt = false,
     String? assignedUserId,
     String? projectId,
     String? userId,
@@ -71,6 +78,8 @@ class Task {
       date: date ?? this.date,
       time: time ?? this.time,
       isCompleted: isCompleted ?? this.isCompleted,
+      completed: completed ?? this.completed,
+      completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       assignedUserId: assignedUserId ?? this.assignedUserId,
       projectId: projectId ?? this.projectId,
       userId: userId ?? this.userId,
@@ -95,6 +104,8 @@ class Task {
       'date': date.toIso8601String(),
       'time': time,
       'is_completed': isCompleted,
+      'completed': completed,
+      'completed_at': completedAt?.toIso8601String(),
       'assigned_user_id': assignedUserId,
       'project_id': projectId,
       'owner_id': userId,
@@ -109,18 +120,35 @@ class Task {
     };
   }
 
-  factory Task.fromJson(Map<String, dynamic> json, {List<Attachment>? attachments, List<Comment>? comments, List<String>? dependencyIds}) {
+  factory Task.fromJson(
+    Map<String, dynamic> json, {
+    List<Attachment>? attachments,
+    List<Comment>? comments,
+    List<String>? dependencyIds,
+  }) {
+    // Handle both old and new completion fields with proper null safety
+    final bool completedValue =
+        (json['completed'] as bool?) ??
+        (json['is_completed'] as bool?) ??
+        false;
+
     return Task(
       id: json['id'],
       title: json['title'],
       date: DateTime.parse(json['date']),
       time: json['time'],
-      isCompleted: json['is_completed'] ?? false,
+      isCompleted: completedValue,
+      completed: completedValue,
+      completedAt: json['completed_at'] != null
+          ? DateTime.parse(json['completed_at'])
+          : null,
       assignedUserId: json['assigned_user_id'],
       projectId: json['project_id'],
       userId: json['owner_id'],
       priority: json['priority'],
-      reminderAt: json['reminder_at'] != null ? DateTime.parse(json['reminder_at']) : null,
+      reminderAt: json['reminder_at'] != null
+          ? DateTime.parse(json['reminder_at'])
+          : null,
       isRecurring: json['is_recurring'] ?? false,
       recurrencePattern: json['recurrence_pattern'],
       description: json['description'],

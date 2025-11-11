@@ -14,37 +14,68 @@ class TaskRepository {
       query = query.filter('project_id', 'is', null); // Quick todos
     }
     final response = await query.order('date', ascending: true);
-    return await Future.wait(response.map((json) async {
-      final attachments = await getTaskAttachments(json['id']);
-      final comments = await getTaskComments(json['id']);
-      final dependencies = await getTaskDependencies(json['id']);
-      return Task.fromJson(json, attachments: attachments, comments: comments, dependencyIds: dependencies);
-    }));
+    return await Future.wait(
+      response.map((json) async {
+        final attachments = await getTaskAttachments(json['id']);
+        final comments = await getTaskComments(json['id']);
+        final dependencies = await getTaskDependencies(json['id']);
+        return Task.fromJson(
+          json,
+          attachments: attachments,
+          comments: comments,
+          dependencyIds: dependencies,
+        );
+      }),
+    );
   }
 
   Future<List<Attachment>> getTaskAttachments(String taskId) async {
-    final response = await _supabase.from('attachments').select('*').eq('task_id', taskId);
+    final response = await _supabase
+        .from('attachments')
+        .select('*')
+        .eq('task_id', taskId);
     return response.map((json) => Attachment.fromJson(json)).toList();
   }
 
   Future<List<Comment>> getTaskComments(String taskId) async {
-    final response = await _supabase.from('comments').select('*').eq('task_id', taskId).order('created_at', ascending: false);
+    final response = await _supabase
+        .from('comments')
+        .select('*')
+        .eq('task_id', taskId)
+        .order('created_at', ascending: false);
     return response.map((json) => Comment.fromJson(json)).toList();
   }
 
   Future<List<String>> getTaskDependencies(String taskId) async {
-    final response = await _supabase.from('task_dependencies').select('depends_on_task_id').eq('task_id', taskId);
-    return response.map((json) => json['depends_on_task_id'] as String).toList();
+    final response = await _supabase
+        .from('task_dependencies')
+        .select('depends_on_task_id')
+        .eq('task_id', taskId);
+    return response
+        .map((json) => json['depends_on_task_id'] as String)
+        .toList();
   }
 
   Future<Task> createTask(Task task) async {
     final json = task.toJson();
-    final response = await _supabase.from('tasks').insert(json).select().single();
+    final response = await _supabase
+        .from('tasks')
+        .insert(json)
+        .select()
+        .single();
     return Task.fromJson(response);
   }
 
   Future<void> updateTask(Task task) async {
     final json = task.toJson();
+    // If task is being marked as completed and doesn't have a completed_at timestamp, add it
+    if (task.completed && task.completedAt == null) {
+      json['completed_at'] = DateTime.now().toIso8601String();
+    }
+    // If task is being marked as incomplete, clear the completed_at timestamp
+    if (!task.completed) {
+      json['completed_at'] = null;
+    }
     await _supabase.from('tasks').update(json).eq('id', task.id);
   }
 
