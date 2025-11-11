@@ -246,7 +246,14 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
   Future<void> _toggleTaskCompletion(Task task) async {
     // Optimistic update - immediately update UI
-    final updatedTask = task.copyWith(isCompleted: !task.isCompleted);
+    final now = DateTime.now();
+    final isNowCompleted = !task.completed;
+    final updatedTask = task.copyWith(
+      isCompleted: isNowCompleted,
+      completed: isNowCompleted,
+      completedAt: isNowCompleted ? now : null,
+      clearCompletedAt: !isNowCompleted,
+    );
     _optimisticUpdateTask(updatedTask);
 
     try {
