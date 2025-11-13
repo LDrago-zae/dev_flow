@@ -30,7 +30,7 @@ class AddQuickTodoDialog {
               top: 20,
             ),
             decoration: BoxDecoration(
-              color: DarkThemeColors.surface,
+              color: Colors.black,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(20),
               ),
@@ -89,7 +89,7 @@ class AddQuickTodoDialog {
                     onUserSelected: (userId) {
                       setModalState(() {
                         // Only accept valid UUIDs or null, ignore dummy user IDs
-                        if (userId == null || userId.length > 10) {
+                        if (userId == null || userId.length > 30) {
                           selectedUserId = userId;
                         } else {
                           // If it's a dummy user ID (like '1', '2', etc), set to null
@@ -210,6 +210,14 @@ class AddQuickTodoDialog {
                       onPressed: () {
                         if (titleController.text.isNotEmpty) {
                           try {
+                            // Validate UUID format - only accept valid UUIDs or null
+                            String? validAssignedUserId;
+                            if (selectedUserId != null &&
+                                selectedUserId!.length > 30) {
+                              // Valid UUIDs are ~36 characters, dummy IDs are short like '1', '2'
+                              validAssignedUserId = selectedUserId;
+                            }
+
                             final todo = Task(
                               id: Uuid().v4(),
                               title: titleController.text,
@@ -217,7 +225,7 @@ class AddQuickTodoDialog {
                               time:
                                   '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
                               isCompleted: false,
-                              assignedUserId: selectedUserId,
+                              assignedUserId: validAssignedUserId,
                               userId:
                                   Supabase
                                       .instance
