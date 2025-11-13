@@ -32,7 +32,7 @@ class _SignInState extends State<SignIn> {
         color: DarkThemeColors.textSecondary,
       ),
       filled: true,
-      fillColor: DarkThemeColors.dark,
+      fillColor: Colors.black,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -63,7 +63,7 @@ class _SignInState extends State<SignIn> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DarkThemeColors.dark,
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -381,7 +381,7 @@ class _GoogleButtonState extends State<_GoogleButton> {
           if (!mounted) return;
 
           setState(() => _isLoading = false);
-          
+
           print('❌ Sign-In Screen Error: $e');
           print('Stack trace: $stackTrace');
 
@@ -398,7 +398,7 @@ class _GoogleButtonState extends State<_GoogleButton> {
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: DarkThemeColors.dark,
+          color: Colors.black,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: DarkThemeColors.border),
         ),
