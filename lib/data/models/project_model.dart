@@ -132,10 +132,14 @@ class Project {
               orElse: () => ProjectStatus.ongoing,
             )
           : ProjectStatus.ongoing,
+      imagePath: json['image_path'] as String?,
+      assignedUserId: json['assigned_user_id'] as String?,
       userId: json['owner_id'] ?? json['user_id'],
+      tags: json['tags'] != null ? List<String>.from(json['tags'] as List) : [],
       budget: json['budget'] != null
           ? (json['budget'] as num).toDouble()
           : null,
+      estimatedHours: json['estimated_hours'] as int?,
       tasks: tasks ?? [],
     );
   }

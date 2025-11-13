@@ -23,6 +23,10 @@ class Task {
   final int? estimatedMinutes;
   final List<Attachment> attachments;
   final List<Comment> comments;
+  // Location fields
+  final String? locationName;
+  final double? latitude;
+  final double? longitude;
 
   Task({
     required this.id,
@@ -46,6 +50,9 @@ class Task {
     this.estimatedMinutes,
     this.attachments = const [],
     this.comments = const [],
+    this.locationName,
+    this.latitude,
+    this.longitude,
   }) : completed = completed ?? isCompleted;
 
   Task copyWith({
@@ -71,6 +78,10 @@ class Task {
     int? estimatedMinutes,
     List<Attachment>? attachments,
     List<Comment>? comments,
+    String? locationName,
+    double? latitude,
+    double? longitude,
+    bool clearLocation = false,
   }) {
     return Task(
       id: id ?? this.id,
@@ -94,6 +105,9 @@ class Task {
       estimatedMinutes: estimatedMinutes ?? this.estimatedMinutes,
       attachments: attachments ?? this.attachments,
       comments: comments ?? this.comments,
+      locationName: clearLocation ? null : (locationName ?? this.locationName),
+      latitude: clearLocation ? null : (latitude ?? this.latitude),
+      longitude: clearLocation ? null : (longitude ?? this.longitude),
     );
   }
 
@@ -117,6 +131,9 @@ class Task {
       'category': category,
       'parent_task_id': parentTaskId,
       'estimated_minutes': estimatedMinutes,
+      'location_name': locationName,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -158,6 +175,9 @@ class Task {
       estimatedMinutes: json['estimated_minutes'],
       attachments: attachments ?? [],
       comments: comments ?? [],
+      locationName: json['location_name'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 }
