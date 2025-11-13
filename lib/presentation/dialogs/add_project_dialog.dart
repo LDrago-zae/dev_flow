@@ -41,7 +41,7 @@ class AddProjectDialog {
             top: 20,
           ),
           decoration: BoxDecoration(
-            color: DarkThemeColors.surface,
+            color: Colors.black,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(20),
               topRight: Radius.circular(20),
