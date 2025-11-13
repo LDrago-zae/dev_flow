@@ -5,12 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables
   await dotenv.load(fileName: '.env');
+
+  // Initialize Mapbox
+  final mapboxToken = dotenv.env['MAPBOX_MAPS_API_KEY'];
+  if (mapboxToken != null && mapboxToken.isNotEmpty) {
+    MapboxOptions.setAccessToken(mapboxToken);
+  }
 
   // Initialize Supabase
   await Supabase.initialize(
