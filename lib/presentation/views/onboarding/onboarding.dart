@@ -11,11 +11,11 @@ class Onboarding extends GetView<OnboardingViewModel> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: LightThemeColors.primary600,
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
           Obx(
-                () => OnboardingBackground(
+            () => OnboardingBackground(
               imageSlideAnimation: controller.imageSlideAnimation,
               imageFadeAnimation: controller.imageFadeAnimation,
               pageImageSlideAnimation: controller.pageImageSlideAnimation,
@@ -25,7 +25,7 @@ class Onboarding extends GetView<OnboardingViewModel> {
             ),
           ),
           Obx(
-                () => OnboardingBottomSheet(
+            () => OnboardingBottomSheet(
               pageController: controller.pageController,
               totalPages: controller.totalPages,
               currentPage: controller.currentPage.value,

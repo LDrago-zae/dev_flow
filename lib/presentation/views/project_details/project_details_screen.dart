@@ -9,12 +9,18 @@ import 'package:dev_flow/data/models/subtask_model.dart';
 import 'package:dev_flow/data/models/user_model.dart';
 import 'package:dev_flow/presentation/widgets/user_avatar.dart';
 import 'package:dev_flow/presentation/widgets/user_dropdown.dart';
+import 'package:dev_flow/presentation/dialogs/add_edit_task_dialog.dart';
+import 'package:dev_flow/presentation/widgets/task_location_map_card.dart';
+import 'package:dev_flow/presentation/views/task_location_map_screen.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/data/repositories/subtask_repository.dart';
+import 'package:dev_flow/data/repositories/project_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:async';
+import 'dart:io';
 
 class ProjectDetailsScreen extends StatefulWidget {
   final Project project;
@@ -45,7 +51,9 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   // Supabase integration
   final TaskRepository _taskRepository = TaskRepository();
   final SubtaskRepository _subtaskRepository = SubtaskRepository();
+  final ProjectRepository _projectRepository = ProjectRepository();
   final RealtimeService _realtimeService = RealtimeService();
+  final ImagePicker _imagePicker = ImagePicker();
   late StreamSubscription<Task> _taskSubscription;
   late StreamSubscription<Project> _projectSubscription;
 
@@ -54,6 +62,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   Map<String, StreamSubscription<List<Subtask>>> _subtaskSubscriptions = {};
   final TextEditingController _subtaskController = TextEditingController();
   String? _addingSubtaskFor; // Track which task is having a subtask added
+  String? _expandedTaskId; // Track which task is expanded to show details
 
   bool _isLoading = false;
   String? _error;
@@ -103,13 +112,14 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) throw Exception('User not authenticated');
 
-      final tasks = await _taskRepository.getTasks(
-        userId,
-        projectId: _project.id,
+      // Fetch complete project data from database including image_path and assigned_user_id
+      final updatedProject = await _projectRepository.getProjectById(
+        _project.id,
       );
 
       setState(() {
-        _project = _project.copyWith(tasks: tasks);
+        _project = updatedProject;
+        _selectedProjectUserId = updatedProject.assignedUserId;
         _updateFilteredTasks();
         _isLoading = false;
       });
@@ -147,6 +157,93 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
       if (kDebugMode) {
         print('Error loading subtasks for task $taskId: $e');
       }
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      // Pick image from gallery
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      // Show loading indicator
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Uploading image...'),
+            ],
+          ),
+          duration: Duration(minutes: 1),
+        ),
+      );
+
+      // Upload to Supabase Storage
+      final file = File(image.path);
+      final bytes = await file.readAsBytes();
+      final fileExt = image.path.split('.').last;
+      final fileName =
+          '${_project.id}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final filePath = 'project_images/$fileName';
+
+      await Supabase.instance.client.storage
+          .from('DevFlow')
+          .uploadBinary(filePath, bytes);
+
+      // Get public URL
+      final imageUrl = Supabase.instance.client.storage
+          .from('DevFlow')
+          .getPublicUrl(filePath);
+
+      print('DEBUG: Uploaded image URL: $imageUrl');
+
+      // Update project with new image URL
+      final updatedProject = _project.copyWith(imagePath: imageUrl);
+      print('DEBUG: Updated project imagePath: ${updatedProject.imagePath}');
+
+      await _projectRepository.updateProject(updatedProject);
+      print('DEBUG: Project updated in database');
+
+      setState(() {
+        _project = updatedProject;
+      });
+
+      widget.onUpdate(updatedProject);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Image uploaded successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to upload image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -413,12 +510,36 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
   }
 
-  void _assignProjectUser(String? userId) {
+  void _assignProjectUser(String? userId) async {
     setState(() {
       _selectedProjectUserId = userId;
       _project = _project.copyWith(assignedUserId: userId);
-      widget.onUpdate(_project);
     });
+
+    try {
+      // Save to database
+      await _projectRepository.updateProject(_project);
+      widget.onUpdate(_project);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User assigned successfully'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to assign user: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _resetDialogState() {
@@ -431,16 +552,68 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   }
 
   void _showEditTaskDialog(Task task) {
-    _isEditing = true;
-    _editingTask = task;
-    _taskTitleController.text = task.title;
-    _selectedDate = task.date;
-    _selectedTaskUserId = task.assignedUserId;
+    final selectedTime = _parseTimeString(task.time);
 
-    // Parse time from string - handle multiple possible formats
-    _selectedTime = _parseTimeString(task.time);
+    AddEditTaskDialog.show(
+      context,
+      task: task,
+      initialDate: task.date,
+      initialTime: selectedTime,
+      onSubmit:
+          (
+            title,
+            date,
+            time,
+            assignedUserId,
+            locationName,
+            latitude,
+            longitude,
+          ) async {
+            final updatedTask = task.copyWith(
+              title: title,
+              date: date,
+              time:
+                  '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+              assignedUserId: assignedUserId,
+              locationName: locationName,
+              latitude: latitude,
+              longitude: longitude,
+            );
 
-    _showTaskDialog();
+            // Optimistically update UI
+            _optimisticUpdateTask(updatedTask);
+
+            try {
+              await _taskRepository.updateTask(updatedTask);
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Task updated successfully'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('Error updating task: $e');
+              }
+
+              // Reload data to revert optimistic update
+              await _loadProjectData();
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to update task: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
+    );
   }
 
   TimeOfDay _parseTimeString(String timeString) {
@@ -510,7 +683,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
               bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
             decoration: BoxDecoration(
-              color: DarkThemeColors.surface,
+              color: Colors.black,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(20),
               ),
@@ -681,7 +854,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: DarkThemeColors.background,
+        backgroundColor: Colors.black,
         body: const Center(
           child: CircularProgressIndicator(color: DarkThemeColors.primary100),
         ),
@@ -690,7 +863,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: DarkThemeColors.background,
+        backgroundColor: Colors.black,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -730,7 +903,8 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: DarkThemeColors.background,
+      backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
@@ -893,7 +1067,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
                           // Task List
                           _buildTaskList(),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 100),
                         ],
                       ),
                     ),
@@ -906,8 +1080,101 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          _resetDialogState();
-          _showTaskDialog();
+          AddEditTaskDialog.show(
+            context,
+            initialDate: DateTime.now(),
+            initialTime: TimeOfDay.now(),
+            onSubmit:
+                (
+                  title,
+                  date,
+                  time,
+                  assignedUserId,
+                  locationName,
+                  latitude,
+                  longitude,
+                ) async {
+                  final uuid = Uuid();
+                  final currentUser = Supabase.instance.client.auth.currentUser;
+
+                  // Validate UUID format - only accept valid UUIDs or null
+                  String? validAssignedUserId;
+                  if (assignedUserId != null && assignedUserId.length > 30) {
+                    // Valid UUIDs are ~36 characters, dummy IDs are short like '1', '2'
+                    validAssignedUserId = assignedUserId;
+                  }
+
+                  final newTask = Task(
+                    id: uuid.v4(),
+                    title: title,
+                    date: date,
+                    time:
+                        '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                    isCompleted: false,
+                    assignedUserId: validAssignedUserId,
+                    projectId: _project.id,
+                    userId: currentUser?.id ?? '',
+                    locationName: locationName,
+                    latitude: latitude,
+                    longitude: longitude,
+                  );
+
+                  // Optimistically update UI before API call
+                  if (mounted) {
+                    setState(() {
+                      final updatedTasks = [..._project.tasks, newTask];
+                      final completedCount = updatedTasks
+                          .where((t) => t.isCompleted)
+                          .length;
+                      final newProgress = updatedTasks.isEmpty
+                          ? 0.0
+                          : completedCount / updatedTasks.length;
+
+                      _project = _project.copyWith(
+                        tasks: updatedTasks,
+                        progress: newProgress,
+                      );
+                      widget.onUpdate(_project);
+                      _updateFilteredTasks();
+                    });
+                  }
+
+                  try {
+                    await _taskRepository.createTask(newTask);
+
+                    // Set up real-time subscription for the new task's subtasks
+                    await _loadSubtasksForTask(newTask.id);
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Task "${newTask.title}" created successfully',
+                          ),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (kDebugMode) {
+                      print('Error saving task: $e');
+                    }
+
+                    // Reload data to revert optimistic update
+                    await _loadProjectData();
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to save task: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+          );
         },
         backgroundColor: DarkThemeColors.primary100,
         child: const Icon(Icons.add, color: Colors.white),
@@ -954,20 +1221,51 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           height: 200,
           decoration: BoxDecoration(color: DarkThemeColors.surface),
           child: _project.imagePath != null
-              ? Image.asset(
-                  _project.imagePath!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: _project.cardColor.withOpacity(0.3),
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 64,
-                        color: DarkThemeColors.textSecondary,
-                      ),
-                    );
-                  },
-                )
+              ? (_project.imagePath!.startsWith('http')
+                    ? Image.network(
+                        _project.imagePath!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: _project.cardColor.withOpacity(0.3),
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 64,
+                              color: DarkThemeColors.textSecondary,
+                            ),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: _project.cardColor.withOpacity(0.3),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: DarkThemeColors.primary100,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : Image.asset(
+                        _project.imagePath!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: _project.cardColor.withOpacity(0.3),
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 64,
+                              color: DarkThemeColors.textSecondary,
+                            ),
+                          );
+                        },
+                      ))
               : Container(
                   color: _project.cardColor.withOpacity(0.3),
                   child: Icon(
@@ -997,17 +1295,31 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             ),
           ),
         ),
-        // Edit Icon
+        // Edit Icon - Pick Image
         Positioned(
           bottom: 12,
           right: 12,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: DarkThemeColors.primary100,
-              shape: BoxShape.circle,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _pickAndUploadImage,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: DarkThemeColors.primary100,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.edit, color: Colors.white, size: 16),
+              ),
             ),
-            child: const Icon(Icons.edit, color: Colors.white, size: 16),
           ),
         ),
       ],
@@ -1215,111 +1527,125 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             onDismissed: (direction) {
               _deleteTask(task);
             },
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => _toggleTaskCompletion(task),
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _expandedTaskId = _expandedTaskId == task.id ? null : task.id;
+                });
+              },
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => _toggleTaskCompletion(task),
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: task.isCompleted
+                              ? _project.cardColor
+                              : DarkThemeColors.border,
+                          width: 2,
+                        ),
                         color: task.isCompleted
                             ? _project.cardColor
-                            : DarkThemeColors.border,
-                        width: 2,
+                            : Colors.transparent,
                       ),
-                      color: task.isCompleted
-                          ? _project.cardColor
-                          : Colors.transparent,
+                      child: task.isCompleted
+                          ? const Icon(
+                              Icons.check,
+                              size: 16,
+                              color: Colors.white,
+                            )
+                          : null,
                     ),
-                    child: task.isCompleted
-                        ? const Icon(Icons.check, size: 16, color: Colors.white)
-                        : null,
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        task.title,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: task.isCompleted
-                              ? DarkThemeColors.textSecondary
-                              : DarkThemeColors.textPrimary,
-                          fontWeight: FontWeight.w600,
-                          decoration: task.isCompleted
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task.title,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: task.isCompleted
+                                ? DarkThemeColors.textSecondary
+                                : DarkThemeColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            decoration: task.isCompleted
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            dateString,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: DarkThemeColors.textSecondary,
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                dateString,
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: DarkThemeColors.textSecondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'at',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: DarkThemeColors.textSecondary,
+                            const SizedBox(width: 8),
+                            Text(
+                              'at',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: DarkThemeColors.textSecondary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            task.time,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: DarkThemeColors.textSecondary,
+                            const SizedBox(width: 8),
+                            Text(
+                              task.time,
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: DarkThemeColors.textSecondary,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    _addingSubtaskFor == task.id ? Icons.close : Icons.add,
-                    size: 20,
-                    color: DarkThemeColors.textSecondary,
+                  IconButton(
+                    icon: Icon(
+                      _addingSubtaskFor == task.id ? Icons.close : Icons.add,
+                      size: 20,
+                      color: DarkThemeColors.textSecondary,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _addingSubtaskFor = _addingSubtaskFor == task.id
+                            ? null
+                            : task.id;
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Add subtask',
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _addingSubtaskFor = _addingSubtaskFor == task.id
-                          ? null
-                          : task.id;
-                    });
-                  },
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  tooltip: 'Add subtask',
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(
-                    Icons.edit,
-                    size: 20,
-                    color: DarkThemeColors.textSecondary,
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit,
+                      size: 20,
+                      color: DarkThemeColors.textSecondary,
+                    ),
+                    onPressed: () => _showEditTaskDialog(task),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
-                  onPressed: () => _showEditTaskDialog(task),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 8),
-                UserAvatar(
-                  user: task.assignedUserId != null
-                      ? DummyUsers.getUserById(task.assignedUserId!)
-                      : null,
-                  radius: 16,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  UserAvatar(
+                    user: task.assignedUserId != null
+                        ? DummyUsers.getUserById(task.assignedUserId!)
+                        : null,
+                    radius: 16,
+                  ),
+                ],
+              ),
             ),
           ),
           // Subtask input field
@@ -1368,6 +1694,28 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           if (_taskSubtasks[task.id] != null &&
               _taskSubtasks[task.id]!.isNotEmpty)
             _buildSubtasks(task.id),
+          // Display location map card if task has location and is expanded
+          if (_expandedTaskId == task.id &&
+              task.latitude != null &&
+              task.longitude != null)
+            TaskLocationMapCard(
+              locationName: task.locationName ?? 'Task Location',
+              latitude: task.latitude!,
+              longitude: task.longitude!,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TaskLocationMapScreen(
+                      locationName: task.locationName ?? 'Task Location',
+                      latitude: task.latitude!,
+                      longitude: task.longitude!,
+                      taskTitle: task.title,
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

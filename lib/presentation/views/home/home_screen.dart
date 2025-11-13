@@ -11,6 +11,7 @@ import 'package:dev_flow/presentation/widgets/home/fab_options_dialog.dart';
 import 'package:dev_flow/presentation/dialogs/add_project_dialog.dart';
 import 'package:dev_flow/presentation/dialogs/add_quick_todo_dialog.dart';
 import 'package:dev_flow/presentation/views/project_details/project_details_screen.dart';
+import 'package:dev_flow/presentation/views/activity/daily_task_detail_screen.dart';
 import 'package:dev_flow/data/repositories/project_repository.dart';
 import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
@@ -38,11 +39,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Project> _projects = [];
   List<Task> _quickTodos = [];
+  List<Project> _filteredProjects = [];
+  List<Task> _filteredQuickTodos = [];
 
   bool _isLoading = true;
   String? _error;
   String _userName = 'User';
   String _selectedFilter = 'All'; // For filtering quick todos
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -106,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _quickTodos = quickTodos;
         _isLoading = false;
       });
+      _filterData();
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -264,7 +270,32 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 24),
 
                         // Search Bar
-                        const CustomSearchBar(hintText: 'Search your project'),
+                        CustomSearchBar(
+                          hintText: 'Search projects and tasks',
+                          controller: _searchController,
+                          onChanged: (value) {
+                            setState(() {
+                              _searchQuery = value;
+                            });
+                            _filterData();
+                          },
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.clear,
+                                    size: 18,
+                                    color: DarkThemeColors.textSecondary,
+                                  ),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _searchQuery = '';
+                                    });
+                                    _filterData();
+                                  },
+                                )
+                              : null,
+                        ),
                         const SizedBox(height: 24),
 
                         // Your Project Section
@@ -317,6 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     });
+    _filterData();
   }
 
   void _updateQuickTodoInList(Task updatedTask) {
@@ -331,6 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     });
+    _filterData();
   }
 
   void _updateTaskInProject(Task updatedTask) {
@@ -351,6 +384,25 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     });
+    _filterData();
+  }
+
+  Future<void> _toggleTaskCompletion(Task task) async {
+    // Optimistically update UI
+    final updatedTask = task.copyWith(completed: !task.completed);
+    _updateQuickTodoInList(updatedTask);
+
+    try {
+      await _taskRepository.updateTask(updatedTask);
+    } catch (e) {
+      // Revert on error
+      _updateQuickTodoInList(task);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update task: $e')));
+      }
+    }
   }
 
   @override
@@ -358,11 +410,40 @@ class _HomeScreenState extends State<HomeScreen> {
     _projectSubscription.cancel();
     _taskSubscription.cancel();
     _realtimeService.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
+  void _filterData() {
+    setState(() {
+      // Filter projects
+      _filteredProjects = _projects.where((project) {
+        final matchesSearch =
+            _searchQuery.isEmpty ||
+            project.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            project.description.toLowerCase().contains(
+              _searchQuery.toLowerCase(),
+            ) ||
+            project.category.toLowerCase().contains(_searchQuery.toLowerCase());
+        return matchesSearch;
+      }).toList();
+
+      // Filter quick todos
+      _filteredQuickTodos = _quickTodos.where((todo) {
+        final matchesSearch =
+            _searchQuery.isEmpty ||
+            todo.title.toLowerCase().contains(_searchQuery.toLowerCase());
+        final matchesFilter =
+            _selectedFilter == 'All' ||
+            (_selectedFilter == 'Completed' && todo.completed) ||
+            (_selectedFilter == 'Pending' && !todo.completed);
+        return matchesSearch && matchesFilter;
+      }).toList();
+    });
+  }
+
   Widget _buildProjectsList(BoxConstraints constraints) {
-    if (_projects.isEmpty && !_isLoading) {
+    if (_filteredProjects.isEmpty && !_isLoading) {
       return Center(
         child: Column(
           children: [
@@ -373,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No projects yet',
+              _searchQuery.isEmpty ? 'No projects yet' : 'No projects found',
               style: TextStyle(
                 color: DarkThemeColors.textSecondary,
                 fontSize: 16,
@@ -385,7 +466,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Show skeleton items when loading
-    final projectsToDisplay = _isLoading && _projects.isEmpty
+    final projectsToDisplay = _isLoading && _filteredProjects.isEmpty
         ? List.generate(
             2,
             (index) => Project(
@@ -406,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
               status: ProjectStatus.ongoing,
             ),
           )
-        : _projects;
+        : _filteredProjects;
 
     return Column(
       children: projectsToDisplay.asMap().entries.map((entry) {
@@ -479,6 +560,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 setState(() {
                   _selectedFilter = filter;
                 });
+                _filterData();
               },
               backgroundColor: Colors.black,
               selectedColor: DarkThemeColors.surface,
@@ -491,14 +573,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildQuickTodosList() {
-    final filteredTodos = _quickTodos.where((todo) {
-      if (_selectedFilter == 'All') return true;
-      if (_selectedFilter == 'Completed') return todo.completed;
-      if (_selectedFilter == 'Pending') return !todo.completed;
-      return true;
-    }).toList();
-
-    if (filteredTodos.isEmpty && !_isLoading) {
+    if (_filteredQuickTodos.isEmpty && !_isLoading) {
       return Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
@@ -515,9 +590,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              _quickTodos.isEmpty
-                  ? '✨ Start conquering your day!'
-                  : 'No ${_selectedFilter.toLowerCase()} todos',
+              _searchQuery.isEmpty
+                  ? (_quickTodos.isEmpty
+                        ? '✨ Start conquering your day!'
+                        : 'No ${_selectedFilter.toLowerCase()} todos')
+                  : 'No todos found',
               style: const TextStyle(
                 color: DarkThemeColors.textSecondary,
                 fontSize: 16,
@@ -525,22 +602,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tap the + button to add your quick tasks',
-              style: TextStyle(
-                color: DarkThemeColors.textSecondary,
-                fontSize: 14,
+            if (_searchQuery.isEmpty) const SizedBox(height: 8),
+            if (_searchQuery.isEmpty)
+              const Text(
+                'Tap the + button to add your quick tasks',
+                style: TextStyle(
+                  color: DarkThemeColors.textSecondary,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
           ],
         ),
       );
     }
 
     // Show skeleton items when loading
-    final todosToDisplay = _isLoading && filteredTodos.isEmpty
+    final todosToDisplay = _isLoading && _filteredQuickTodos.isEmpty
         ? List.generate(
             3,
             (index) => Task(
@@ -551,48 +629,19 @@ class _HomeScreenState extends State<HomeScreen> {
               userId: '',
             ),
           )
-        : filteredTodos;
+        : _filteredQuickTodos;
 
     return QuickTodoList(
       todos: todosToDisplay,
-      onTodoTap: (todo) async {
-        try {
-          final now = DateTime.now();
-          final isNowCompleted = !todo.completed;
-          final updatedTodo = todo.copyWith(
-            isCompleted: isNowCompleted,
-            completed: isNowCompleted,
-            completedAt: isNowCompleted ? now : null,
-            clearCompletedAt: !isNowCompleted,
-          );
-
-          // Optimistic update - update UI immediately
-          setState(() {
-            final index = _quickTodos.indexWhere((t) => t.id == todo.id);
-            if (index != -1) {
-              _quickTodos[index] = updatedTodo;
-            }
-          });
-
-          // Update in database
-          await _taskRepository.updateTask(updatedTodo);
-          // Real-time subscription will handle the final update
-        } catch (e) {
-          // Revert optimistic update on error
-          setState(() {
-            final index = _quickTodos.indexWhere((t) => t.id == todo.id);
-            if (index != -1) {
-              _quickTodos[index] = todo;
-            }
-          });
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to update todo: $e')),
-            );
-          }
-        }
+      onTodoTap: (todo) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DailyTaskDetailScreen(task: todo),
+          ),
+        );
       },
+      onToggleComplete: _toggleTaskCompletion,
       formatDate: _formatDate,
     );
   }
