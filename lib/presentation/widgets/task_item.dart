@@ -7,6 +7,7 @@ class TaskItem extends StatelessWidget {
   final String date;
   final String time;
   final VoidCallback? onTap;
+  final VoidCallback? onCheckboxTap;
   final bool isCompleted;
   final Color? checkboxColor;
 
@@ -17,6 +18,7 @@ class TaskItem extends StatelessWidget {
     required this.date,
     required this.time,
     this.onTap,
+    this.onCheckboxTap,
     this.isCompleted = false,
     this.checkboxColor,
   });
@@ -40,7 +42,7 @@ class TaskItem extends StatelessWidget {
           children: [
             // Checkbox
             GestureDetector(
-              onTap: onTap,
+              onTap: onCheckboxTap ?? onTap,
               child: Container(
                 width: 24,
                 height: 24,

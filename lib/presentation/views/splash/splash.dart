@@ -50,7 +50,7 @@ class _SplashState extends State<Splash> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DarkThemeColors.dark,
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
           Center(
