@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/core/utils/app_text_styles.dart';
 import 'package:dev_flow/data/models/user_model.dart';
+import 'package:dev_flow/data/repositories/user_repository.dart';
 import 'package:dev_flow/presentation/widgets/user_avatar.dart';
 
-class UserDropdown extends StatelessWidget {
+class UserDropdown extends StatefulWidget {
   final String? selectedUserId;
   final Function(String?) onUserSelected;
   final String hintText;
@@ -19,18 +20,84 @@ class UserDropdown extends StatelessWidget {
   });
 
   @override
+  State<UserDropdown> createState() => _UserDropdownState();
+}
+
+class _UserDropdownState extends State<UserDropdown> {
+  final UserRepository _userRepository = UserRepository();
+  List<User> _users = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    try {
+      final users = await _userRepository.getUsers();
+      if (mounted) {
+        setState(() {
+          _users = users;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final selectedUser = DummyUsers.getUserById(selectedUserId ?? '');
+    final selectedUser = _users
+        .where((u) => u.id == widget.selectedUserId)
+        .firstOrNull;
+
+    if (_isLoading) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  DarkThemeColors.primary100,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Loading users...',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: DarkThemeColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: DarkThemeColors.background,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(12),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
-          value: selectedUserId,
+          value: widget.selectedUserId,
           hint: Row(
             children: [
               CircleAvatar(
@@ -44,7 +111,7 @@ class UserDropdown extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                hintText,
+                widget.hintText,
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: DarkThemeColors.textSecondary,
                 ),
@@ -58,7 +125,7 @@ class UserDropdown extends StatelessWidget {
           isExpanded: true,
           dropdownColor: DarkThemeColors.surface,
           items: [
-            if (showClearOption)
+            if (widget.showClearOption)
               DropdownMenuItem<String?>(
                 value: null,
                 child: Row(
@@ -82,15 +149,12 @@ class UserDropdown extends StatelessWidget {
                   ],
                 ),
               ),
-            ...DummyUsers.users.map((user) {
+            ..._users.map((user) {
               return DropdownMenuItem<String?>(
                 value: user.id,
                 child: Row(
                   children: [
-                    UserAvatar(
-                      user: user,
-                      radius: 12,
-                    ),
+                    UserAvatar(user: user, radius: 12),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -118,10 +182,10 @@ class UserDropdown extends StatelessWidget {
               );
             }),
           ],
-          onChanged: onUserSelected,
+          onChanged: widget.onUserSelected,
           selectedItemBuilder: (context) {
             return [
-              if (showClearOption)
+              if (widget.showClearOption)
                 DropdownMenuItem<String?>(
                   value: null,
                   child: Row(
@@ -145,15 +209,12 @@ class UserDropdown extends StatelessWidget {
                     ],
                   ),
                 ),
-              ...DummyUsers.users.map((user) {
+              ..._users.map((user) {
                 return DropdownMenuItem<String?>(
                   value: user.id,
                   child: Row(
                     children: [
-                      UserAvatar(
-                        user: selectedUser,
-                        radius: 12,
-                      ),
+                      UserAvatar(user: selectedUser, radius: 12),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
