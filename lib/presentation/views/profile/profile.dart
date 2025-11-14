@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:country_picker/country_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_text_styles.dart';
@@ -21,6 +23,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _dobController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+
+  Country _selectedCountry = Country(
+    phoneCode: '1',
+    countryCode: 'US',
+    e164Sc: 0,
+    geographic: true,
+    level: 1,
+    name: 'United States',
+    example: 'United States',
+    displayName: 'United States',
+    displayNameNoCountryCode: 'US',
+    e164Key: '',
+  );
+
+  bool _isGoogleUser = false;
+  bool _isLoading = true;
+  bool _isEditMode = false;
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      // Check if user signed in with Google
+      _isGoogleUser = user.appMetadata['provider'] == 'google';
+
+      // Auto-fill email (always available)
+      _emailController.text = user.email ?? '';
+
+      // Check if profile exists
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (profile != null) {
+        // Load existing profile data for editing
+        _isEditMode = true;
+        _fullNameController.text = profile['name'] ?? '';
+        _avatarUrl = profile['avatar_url'];
+
+        print('✅ Loaded profile from database:');
+        print('  - Name: ${profile['name']}');
+        print('  - Email: ${profile['email']}');
+        print('  - Avatar URL: ${profile['avatar_url']}');
+
+        // Note: username, phone_number, date_of_birth don't exist in schema yet
+      } else if (_isGoogleUser && user.userMetadata != null) {
+        // Use Google metadata if profile doesn't exist yet
+        _fullNameController.text = user.userMetadata?['full_name'] ?? '';
+        _avatarUrl = user.userMetadata?['avatar_url'];
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading user data: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -118,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // ),
         centerTitle: true,
         title: Text(
-          'Fill Your Profile',
+          _isEditMode ? 'Edit Profile' : 'Fill Your Profile',
           style: AppTextStyles.headlineSmall.copyWith(
             fontWeight: FontWeight.w600,
             color: DarkThemeColors.light,
@@ -152,15 +225,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 shape: BoxShape.circle,
                               ),
-                              child: CircleAvatar(
-                                radius: 54,
-                                backgroundColor: Colors.black,
-                                child: Icon(
-                                  Icons.person,
-                                  size: 48,
-                                  color: DarkThemeColors.textSecondary,
-                                ),
-                              ),
+                              child: _isLoading
+                                  ? const CircleAvatar(
+                                      radius: 54,
+                                      backgroundColor: Colors.black,
+                                      child: CircularProgressIndicator(),
+                                    )
+                                  : CircleAvatar(
+                                      radius: 54,
+                                      backgroundColor: Colors.black,
+                                      backgroundImage: _avatarUrl != null
+                                          ? NetworkImage(_avatarUrl!)
+                                          : null,
+                                      child: _avatarUrl == null
+                                          ? Icon(
+                                              Icons.person,
+                                              size: 48,
+                                              color:
+                                                  DarkThemeColors.textSecondary,
+                                            )
+                                          : null,
+                                    ),
                             ),
                             Positioned(
                               bottom: -2,
@@ -237,15 +322,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        readOnly: true,
+                        enabled: false,
                         style: AppTextStyles.bodyMedium.copyWith(
-                          color: DarkThemeColors.light,
+                          color: DarkThemeColors.textSecondary,
                         ),
                         decoration: _inputDecoration('Email').copyWith(
                           suffixIcon: const Icon(
                             Icons.mail_outline,
                             color: DarkThemeColors.icon,
                           ),
+                          fillColor: DarkThemeColors.surface,
                         ),
                       ),
 
@@ -261,31 +348,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: DarkThemeColors.light,
                         ),
                         decoration: _inputDecoration('Phone Number').copyWith(
-                          prefixIcon: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '🇺🇸',
-                                  style: TextStyle(fontSize: 18),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '+1',
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    color: DarkThemeColors.light,
-                                    fontWeight: FontWeight.w600,
+                          prefixIcon: GestureDetector(
+                            onTap: () {
+                              showCountryPicker(
+                                context: context,
+                                showPhoneCode: true,
+                                countryListTheme: CountryListThemeData(
+                                  backgroundColor: DarkThemeColors.surface,
+                                  textStyle: AppTextStyles.bodyMedium.copyWith(
+                                    color: DarkThemeColors.textPrimary,
+                                  ),
+                                  bottomSheetHeight: 500,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
+                                  ),
+                                  inputDecoration: InputDecoration(
+                                    hintText: 'Search country',
+                                    hintStyle: AppTextStyles.bodyMedium
+                                        .copyWith(
+                                          color: DarkThemeColors.textSecondary,
+                                        ),
+                                    prefixIcon: const Icon(Icons.search),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: DarkThemeColors.border,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  width: 1,
-                                  height: 24,
-                                  color: DarkThemeColors.border,
-                                ),
-                                const SizedBox(width: 8),
-                              ],
+                                onSelect: (Country country) {
+                                  setState(() {
+                                    _selectedCountry = country;
+                                  });
+                                },
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _selectedCountry.flagEmoji,
+                                    style: const TextStyle(fontSize: 18),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '+${_selectedCountry.phoneCode}',
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      color: DarkThemeColors.light,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.arrow_drop_down,
+                                    color: DarkThemeColors.textSecondary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    width: 1,
+                                    height: 24,
+                                    color: DarkThemeColors.border,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                              ),
                             ),
                           ),
                           prefixIconConstraints: const BoxConstraints(
@@ -308,19 +441,145 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed: () {
-                            if (_formKey.currentState?.validate() ?? false) {
-                              // TODO: Handle profile submission
-                              context.go(AppRoutes.home);
-                            }
-                          },
-                          child: Text(
-                            'Continue',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          onPressed: _isLoading
+                              ? null
+                              : () async {
+                                  print(
+                                    '🔘 Continue/Save button pressed - isEditMode: $_isEditMode',
+                                  );
+                                  if (_formKey.currentState?.validate() ??
+                                      false) {
+                                    try {
+                                      print('✅ Form validation passed');
+                                      setState(() => _isLoading = true);
+
+                                      final user = Supabase
+                                          .instance
+                                          .client
+                                          .auth
+                                          .currentUser;
+                                      if (user == null)
+                                        throw Exception('No user found');
+
+                                      print('👤 User ID: ${user.id}');
+
+                                      // Prepare phone number with country code
+                                      final phoneNumber =
+                                          _phoneController.text.isNotEmpty
+                                          ? '+${_selectedCountry.phoneCode} ${_phoneController.text.trim()}'
+                                          : null;
+
+                                      print('📝 Profile data to save:');
+                                      print(
+                                        '  - Name: ${_fullNameController.text.trim()}',
+                                      );
+                                      print(
+                                        '  - Username: ${_usernameController.text.trim()}',
+                                      );
+                                      print(
+                                        '  - Email: ${_emailController.text.trim()}',
+                                      );
+                                      print('  - Phone: $phoneNumber');
+                                      print(
+                                        '  - DOB: ${_dobController.text.trim()}',
+                                      );
+                                      print('  - Avatar URL: $_avatarUrl');
+
+                                      // Update or insert profile with all fields
+                                      await Supabase.instance.client
+                                          .from('profiles')
+                                          .upsert({
+                                            'id': user.id,
+                                            'name': _fullNameController.text
+                                                .trim(),
+                                            'username': _usernameController.text
+                                                .trim(),
+                                            'email': _emailController.text
+                                                .trim(),
+                                            'phone_number': phoneNumber,
+                                            'date_of_birth':
+                                                _dobController.text
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _dobController.text.trim()
+                                                : null,
+                                            'avatar_url': _avatarUrl,
+                                            'updated_at': DateTime.now()
+                                                .toIso8601String(),
+                                          });
+                                      print(
+                                        '💾 Profile saved to Supabase successfully',
+                                      );
+
+                                      if (!mounted) return;
+
+                                      // Show success message
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            _isEditMode
+                                                ? 'Profile updated successfully'
+                                                : 'Profile created successfully',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+
+                                      print('🎉 Success message shown');
+
+                                      // Navigate to home only if creating profile, stay here if editing
+                                      if (!_isEditMode) {
+                                        print(
+                                          '🏠 Navigating to home (new user)',
+                                        );
+                                        context.go(AppRoutes.home);
+                                      } else {
+                                        print(
+                                          '🔄 Reloading profile data after save',
+                                        );
+                                        // Reload profile data to reflect changes
+                                        await _loadUserData();
+                                        print(
+                                          '📍 Staying on profile screen (edit mode)',
+                                        );
+                                      }
+                                    } catch (e) {
+                                      print('❌ Error saving profile: $e');
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Failed to save profile: $e',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                      setState(() => _isLoading = false);
+                                    }
+                                  }
+                                },
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  _isEditMode ? 'Save Changes' : 'Continue',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                         ),
                       ),
                     ],

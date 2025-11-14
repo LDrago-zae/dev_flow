@@ -761,9 +761,10 @@ class _CompactNewsCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
+
                   // Description
-                  if (article.description != null && article.description!.isNotEmpty) ...[
+                  if (article.description != null &&
+                      article.description!.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
                       article.description!,
@@ -776,9 +777,9 @@ class _CompactNewsCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Read more indicator
                   Row(
                     children: [

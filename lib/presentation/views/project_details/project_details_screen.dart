@@ -18,6 +18,7 @@ import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/data/repositories/subtask_repository.dart';
 import 'package:dev_flow/data/repositories/project_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
+import 'package:dev_flow/services/fcm_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:async';
 import 'dart:io';
@@ -355,6 +356,19 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
     try {
       await _taskRepository.updateTask(updatedTask);
+
+      // Send FCM notification when task is completed
+      if (isNowCompleted) {
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId != null) {
+          await FCMService().sendNotification(
+            userId: userId,
+            title: '🎯 Task Completed in ${_project.title}',
+            body: 'You completed: ${task.title}',
+            data: {'type': 'task', 'taskId': task.id, 'projectId': _project.id},
+          );
+        }
+      }
       // Real-time subscription will handle the final update
     } catch (e) {
       // Revert on error
@@ -461,6 +475,21 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
         // Set up real-time subscription for the new task's subtasks
         await _loadSubtasksForTask(newTask.id);
+
+        // Send FCM notification
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId != null) {
+          await FCMService().sendNotification(
+            userId: userId,
+            title: '📝 New Task Added to ${_project.title}',
+            body: 'Task: ${newTask.title}',
+            data: {
+              'type': 'task',
+              'taskId': newTask.id,
+              'projectId': _project.id,
+            },
+          );
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
