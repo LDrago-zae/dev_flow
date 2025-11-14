@@ -1,17 +1,33 @@
 import 'dart:io' show Platform;
 import 'package:dev_flow/routes/app_routes.dart';
 import 'package:dev_flow/services/auth_service.dart';
+import 'package:dev_flow/services/fcm_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+// Top-level background message handler
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('Handling background message: ${message.messageId}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables
   await dotenv.load(fileName: '.env');
+
+  // Initialize Firebase
+  await Firebase.initializeApp();
+
+  // Set up background message handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   // Initialize Mapbox
   final mapboxToken = dotenv.env['MAPBOX_MAPS_API_KEY'];
@@ -52,6 +68,10 @@ void main() async {
     // Required for Supabase token exchange (use Web client ID)
     serverClientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
   );
+
+  // Initialize FCM Service
+  final fcmService = FCMService();
+  await fcmService.initialize();
 
   runApp(const MyApp());
 }

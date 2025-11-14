@@ -15,6 +15,7 @@ import 'package:dev_flow/presentation/views/activity/daily_task_detail_screen.da
 import 'package:dev_flow/data/repositories/project_repository.dart';
 import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
+import 'package:dev_flow/services/fcm_service.dart';
 import 'package:dev_flow/presentation/widgets/responsive_layout.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'dart:async';
@@ -195,6 +196,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             duration: Duration(seconds: 2),
                           ),
                         );
+
+                        // Send FCM notification
+                        final userId =
+                            Supabase.instance.client.auth.currentUser?.id;
+                        if (userId != null) {
+                          await FCMService().sendNotification(
+                            userId: userId,
+                            title: '🎉 New Project Created',
+                            body: 'You created: ${project.title}',
+                            data: {'type': 'project', 'projectId': project.id},
+                          );
+                        }
                       }
                     } catch (e) {
                       if (mounted) {
@@ -230,6 +243,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             duration: Duration(seconds: 2),
                           ),
                         );
+
+                        // Send FCM notification
+                        final userId =
+                            Supabase.instance.client.auth.currentUser?.id;
+                        if (userId != null) {
+                          await FCMService().sendNotification(
+                            userId: userId,
+                            title: '✅ New Quick Todo',
+                            body: 'You created: ${todo.title}',
+                            data: {'type': 'task', 'taskId': todo.id},
+                          );
+                        }
                       }
                     } catch (e) {
                       if (mounted) {
@@ -394,6 +419,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       await _taskRepository.updateTask(updatedTask);
+
+      // Send FCM notification when task is completed
+      if (updatedTask.completed) {
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId != null) {
+          await FCMService().sendNotification(
+            userId: userId,
+            title: '🎯 Task Completed',
+            body: 'You completed: ${task.title}',
+            data: {'type': 'task', 'taskId': task.id},
+          );
+        }
+      }
     } catch (e) {
       // Revert on error
       _updateQuickTodoInList(task);

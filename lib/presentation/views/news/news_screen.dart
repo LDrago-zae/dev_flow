@@ -493,7 +493,7 @@ class _NewsScreenState extends State<NewsScreen>
   }
 }
 
-// Featured News Card (Large card with full image)
+// Featured News Card (Modern magazine-style with side image)
 class _FeaturedNewsCard extends StatelessWidget {
   final NewsArticle article;
   final VoidCallback onTap;
@@ -505,115 +505,129 @@ class _FeaturedNewsCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 400,
+        height: 180,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: Colors.black,
+          color: DarkThemeColors.surface,
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Stack(
+        child: Row(
           children: [
-            // Background Image
+            // Image Section (40% width)
             if (article.urlToImage != null && article.urlToImage!.isNotEmpty)
-              Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: CachedNetworkImage(
-                    imageUrl: article.urlToImage!,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: DarkThemeColors.border,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: DarkThemeColors.primary100,
-                        ),
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+                child: CachedNetworkImage(
+                  imageUrl: article.urlToImage!,
+                  width: MediaQuery.of(context).size.width * 0.35,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    width: MediaQuery.of(context).size.width * 0.35,
+                    color: DarkThemeColors.border,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: DarkThemeColors.primary100,
+                        strokeWidth: 2,
                       ),
                     ),
-                    errorWidget: (context, url, error) => Container(
-                      color: DarkThemeColors.border,
-                      child: Icon(
-                        Icons.image_not_supported,
-                        color: DarkThemeColors.textSecondary,
-                        size: 64,
-                      ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    width: MediaQuery.of(context).size.width * 0.35,
+                    color: DarkThemeColors.border,
+                    child: Icon(
+                      Icons.image_not_supported,
+                      color: DarkThemeColors.textSecondary,
+                      size: 32,
                     ),
                   ),
                 ),
               ),
 
-            // Gradient Overlay
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-                    stops: const [0.5, 1.0],
-                  ),
-                ),
-              ),
-            ),
-
-            // Content
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 24,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Date and Source
-                  Row(
-                    children: [
-                      if (article.formattedDate.isNotEmpty) ...[
-                        Text(
-                          article.formattedDate,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+            // Content Section (60% width)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Category Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                        ),
-                        if (article.sourceName != null) ...[
-                          Text(
-                            ' • ',
+                          decoration: BoxDecoration(
+                            color: DarkThemeColors.primary100.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'FEATURED',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 12,
+                              color: DarkThemeColors.primary100,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Title
+                        Text(
+                          article.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            height: 1.3,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+
+                    // Bottom info
+                    Row(
+                      children: [
+                        if (article.sourceName != null) ...[
                           Flexible(
                             child: Text(
                               article.sourceName!,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 12,
+                                color: DarkThemeColors.textSecondary,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          Text(
+                            ' • ',
+                            style: TextStyle(
+                              color: DarkThemeColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
+                        Text(
+                          article.formattedDate,
+                          style: TextStyle(
+                            color: DarkThemeColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Title
-                  Text(
-                    article.title,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -623,7 +637,7 @@ class _FeaturedNewsCard extends StatelessWidget {
   }
 }
 
-// Compact News Card (Smaller cards for list)
+// Compact News Card (Modern list-style with larger image)
 class _CompactNewsCard extends StatelessWidget {
   final NewsArticle article;
   final VoidCallback onTap;
@@ -635,28 +649,27 @@ class _CompactNewsCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 120,
         decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: DarkThemeColors.border.withOpacity(0.5)),
+          color: DarkThemeColors.surface,
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image
             if (article.urlToImage != null && article.urlToImage!.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
                 ),
                 child: CachedNetworkImage(
                   imageUrl: article.urlToImage!,
-                  width: 120,
-                  height: 120,
+                  width: double.infinity,
+                  height: 160,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
-                    width: 120,
+                    height: 160,
                     color: DarkThemeColors.border,
                     child: Center(
                       child: CircularProgressIndicator(
@@ -666,71 +679,126 @@ class _CompactNewsCard extends StatelessWidget {
                     ),
                   ),
                   errorWidget: (context, url, error) => Container(
-                    width: 120,
+                    height: 160,
                     color: DarkThemeColors.border,
                     child: Icon(
                       Icons.image_not_supported,
                       color: DarkThemeColors.textSecondary,
-                      size: 32,
+                      size: 40,
                     ),
                   ),
                 ),
               ),
 
             // Content
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Source and time
+                  Row(
+                    children: [
+                      if (article.sourceName != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: DarkThemeColors.border,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            article.sourceName!.toUpperCase(),
+                            style: TextStyle(
+                              color: DarkThemeColors.textSecondary,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      if (article.formattedDate.isNotEmpty)
+                        Flexible(
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: 12,
+                                color: DarkThemeColors.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  article.formattedDate,
+                                  style: TextStyle(
+                                    color: DarkThemeColors.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Title
+                  Text(
+                    article.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  
+                  // Description
+                  if (article.description != null && article.description!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
                     Text(
-                      article.title,
+                      article.description!,
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
+                        color: DarkThemeColors.textSecondary,
+                        fontSize: 13,
+                        height: 1.4,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(),
-
-                    // Date and reading time
-                    Row(
-                      children: [
-                        if (article.formattedDate.isNotEmpty)
-                          Flexible(
-                            child: Text(
-                              article.formattedDate,
-                              style: TextStyle(
-                                color: DarkThemeColors.textSecondary,
-                                fontSize: 11,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        if (article.formattedDate.isNotEmpty)
-                          Text(
-                            ' • ',
-                            style: TextStyle(
-                              color: DarkThemeColors.textSecondary,
-                              fontSize: 11,
-                            ),
-                          ),
-                        Text(
-                          '5 min read',
-                          style: TextStyle(
-                            color: DarkThemeColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
-                ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Read more indicator
+                  Row(
+                    children: [
+                      Text(
+                        'Read more',
+                        style: TextStyle(
+                          color: DarkThemeColors.primary100,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 12,
+                        color: DarkThemeColors.primary100,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
