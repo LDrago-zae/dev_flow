@@ -108,10 +108,7 @@ class AppRoutes {
             path: reports,
             builder: (context, state) => const ReportsScreen(),
           ),
-          GoRoute(
-            path: news,
-            builder: (context, state) => const NewsScreen(),
-          ),
+          GoRoute(path: news, builder: (context, state) => const NewsScreen()),
           GoRoute(
             path: '$news/:url',
             builder: (context, state) {
