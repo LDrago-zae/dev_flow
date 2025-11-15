@@ -17,8 +17,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/data/repositories/subtask_repository.dart';
 import 'package:dev_flow/data/repositories/project_repository.dart';
+import 'package:dev_flow/data/repositories/shared_items_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
 import 'package:dev_flow/services/fcm_service.dart';
+import 'package:dev_flow/services/notification_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:async';
 import 'dart:io';
@@ -53,6 +55,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   final TaskRepository _taskRepository = TaskRepository();
   final SubtaskRepository _subtaskRepository = SubtaskRepository();
   final ProjectRepository _projectRepository = ProjectRepository();
+  final SharedItemsRepository _sharedItemsRepository = SharedItemsRepository();
   final RealtimeService _realtimeService = RealtimeService();
   final ImagePicker _imagePicker = ImagePicker();
   late StreamSubscription<Task> _taskSubscription;
@@ -540,6 +543,9 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   }
 
   void _assignProjectUser(String? userId) async {
+    final previousUserId = _selectedProjectUserId;
+    final currentUser = Supabase.instance.client.auth.currentUser;
+
     setState(() {
       _selectedProjectUserId = userId;
       _project = _project.copyWith(assignedUserId: userId);
@@ -549,6 +555,59 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
       // Save to database
       await _projectRepository.updateProject(_project);
       widget.onUpdate(_project);
+
+      // Create share entry and send notification if assigning to a different user
+      print(
+        '🔔 DEBUG: Assignment check - userId: $userId, previousUserId: $previousUserId, currentUserId: ${currentUser?.id}',
+      );
+
+      if (userId != null && userId != previousUserId) {
+        print(
+          '🔔 DEBUG: User ID changed, checking if different from current user...',
+        );
+
+        // Only create share and send notification if assigning to someone else (not yourself)
+        if (userId != currentUser?.id) {
+          print(
+            '🔔 DEBUG: Assigning to different user - creating share entry...',
+          );
+          print('🔔 Project ID: ${_project.id}');
+          print('🔔 Shared with: $userId');
+
+          // Create share entry in shared_projects table
+          try {
+            await _sharedItemsRepository.shareProject(
+              projectId: _project.id,
+              sharedWithUserId: userId,
+              permission: 'edit', // Assigned users get edit permission
+            );
+            print('🔔 DEBUG: Share entry created successfully!');
+          } catch (shareError) {
+            print('⚠️ DEBUG: Failed to create share entry: $shareError');
+            print('⚠️ DEBUG: Share error details: ${shareError.toString()}');
+            // Continue even if share creation fails
+          }
+
+          // Send notification
+          print('🔔 DEBUG: Sending project assignment notification...');
+          await NotificationService().sendNotification(
+            userId: userId,
+            title: 'New Project Assignment',
+            body: 'You have been assigned to project: ${_project.title}',
+            type: 'project_assignment',
+            data: {'project_id': _project.id, 'project_title': _project.title},
+          );
+
+          print('🔔 DEBUG: Project assignment notification sent!');
+        }
+      }
+
+      // Remove share entry if user was unassigned
+      if (userId == null && previousUserId != null) {
+        print('🔔 DEBUG: User unassigned, removing share entry...');
+        // Note: We'd need to query for the share entry ID first to delete it
+        // For now, we'll leave orphaned shares (they won't be accessible anyway)
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -560,6 +619,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
         );
       }
     } catch (e) {
+      print('❌ DEBUG: Error in _assignProjectUser: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -614,6 +674,31 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
             try {
               await _taskRepository.updateTask(updatedTask);
+
+              // Send notification if task was assigned to someone
+              if (assignedUserId != null && assignedUserId.isNotEmpty) {
+                final currentUser = Supabase.instance.client.auth.currentUser;
+                // Only send notification if assigning to someone else
+                if (assignedUserId != currentUser?.id) {
+                  try {
+                    await NotificationService().sendNotification(
+                      userId: assignedUserId,
+                      type: 'task_assigned',
+                      title: 'Task Assigned',
+                      body: 'You have been assigned to "${title}"',
+                      data: {
+                        'task_id': task.id,
+                        'project_id': _project.id,
+                        'project_title': _project.title,
+                      },
+                    );
+                  } catch (e) {
+                    if (kDebugMode) {
+                      print('Failed to send notification: $e');
+                    }
+                  }
+                }
+              }
 
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1171,6 +1256,46 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                   try {
                     await _taskRepository.createTask(newTask);
 
+                    print('🔔 DEBUG: Task created, checking assignment...');
+                    print('🔔 validAssignedUserId: $validAssignedUserId');
+                    print('🔔 currentUser?.id: ${currentUser?.id}');
+
+                    // Send notification if task was assigned to someone
+                    if (validAssignedUserId != null) {
+                      print('🔔 DEBUG: Task has assigned user!');
+                      final currentUser =
+                          Supabase.instance.client.auth.currentUser;
+                      // Only send notification if assigning to someone else
+                      if (validAssignedUserId != currentUser?.id) {
+                        print('🔔 DEBUG: Calling NotificationService...');
+                        try {
+                          final result = await NotificationService()
+                              .sendNotification(
+                                userId: validAssignedUserId,
+                                type: 'task_assigned',
+                                title: 'New Task Assigned',
+                                body: 'You have been assigned to "${title}"',
+                                data: {
+                                  'task_id': newTask.id,
+                                  'project_id': _project.id,
+                                  'project_title': _project.title,
+                                },
+                              );
+                          print('🔔 DEBUG: Notification result: $result');
+                        } catch (e) {
+                          if (kDebugMode) {
+                            print('❌ Failed to send notification: $e');
+                          }
+                        }
+                      } else {
+                        print('🔔 DEBUG: Not sending - assigning to self');
+                      }
+                    } else {
+                      print(
+                        '🔔 DEBUG: No assigned user, skipping notification',
+                      );
+                    }
+
                     // Set up real-time subscription for the new task's subtasks
                     await _loadSubtasksForTask(newTask.id);
 
@@ -1495,49 +1620,50 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     String monthName;
     switch (task.date.month) {
       case 1:
-        monthName = 'January';
+        monthName = 'Jan';
         break;
       case 2:
-        monthName = 'February';
+        monthName = 'Feb';
         break;
       case 3:
-        monthName = 'March';
+        monthName = 'Mar';
         break;
       case 4:
-        monthName = 'April';
+        monthName = 'Apr';
         break;
       case 5:
         monthName = 'May';
         break;
       case 6:
-        monthName = 'June';
+        monthName = 'Jun';
         break;
       case 7:
-        monthName = 'July';
+        monthName = 'Jul';
         break;
       case 8:
-        monthName = 'August';
+        monthName = 'Aug';
         break;
       case 9:
-        monthName = 'September';
+        monthName = 'Sep';
         break;
       case 10:
-        monthName = 'October';
+        monthName = 'Oct';
         break;
       case 11:
-        monthName = 'November';
+        monthName = 'Nov';
         break;
       case 12:
-        monthName = 'December';
+        monthName = 'Dec';
         break;
       default:
         monthName = '';
     }
 
-    final dateString = '${monthName} ${task.date.day}, ${task.date.year}';
+    final dateString = '$monthName ${task.date.day}';
+    final yearString = '${task.date.year}';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1547,203 +1673,354 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             background: Container(
               alignment: Alignment.centerRight,
               padding: const EdgeInsets.only(right: 20),
+              margin: const EdgeInsets.only(bottom: 4),
               decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: [Colors.red.withOpacity(0.3), Colors.red],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.delete, color: Colors.white),
+              child: const Icon(
+                Icons.delete_outline,
+                color: Colors.white,
+                size: 28,
+              ),
             ),
             onDismissed: (direction) {
               _deleteTask(task);
             },
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _expandedTaskId = _expandedTaskId == task.id ? null : task.id;
-                });
-              },
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => _toggleTaskCompletion(task),
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: task.isCompleted
-                              ? _project.cardColor
-                              : DarkThemeColors.border,
-                          width: 2,
-                        ),
-                        color: task.isCompleted
-                            ? _project.cardColor
-                            : Colors.transparent,
-                      ),
-                      child: task.isCompleted
-                          ? const Icon(
-                              Icons.check,
-                              size: 16,
-                              color: Colors.white,
-                            )
-                          : null,
-                    ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: DarkThemeColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: task.isCompleted
+                      ? _project.cardColor.withOpacity(0.3)
+                      : DarkThemeColors.border,
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    setState(() {
+                      _expandedTaskId = _expandedTaskId == task.id
+                          ? null
+                          : task.id;
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          task.title,
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: task.isCompleted
-                                ? DarkThemeColors.textSecondary
-                                : DarkThemeColors.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            decoration: task.isCompleted
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
                         Row(
                           children: [
-                            Flexible(
-                              child: Text(
-                                dateString,
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: DarkThemeColors.textSecondary,
+                            // Checkbox
+                            GestureDetector(
+                              onTap: () => _toggleTaskCompletion(task),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: task.isCompleted
+                                        ? _project.cardColor
+                                        : DarkThemeColors.border,
+                                    width: 2.5,
+                                  ),
+                                  color: task.isCompleted
+                                      ? _project.cardColor
+                                      : Colors.transparent,
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                                child: task.isCompleted
+                                    ? const Icon(
+                                        Icons.check_rounded,
+                                        size: 18,
+                                        color: Colors.white,
+                                      )
+                                    : null,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'at',
-                              style: AppTextStyles.bodySmall.copyWith(
-                                color: DarkThemeColors.textSecondary,
+                            const SizedBox(width: 14),
+
+                            // Task title and details
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    task.title,
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      color: task.isCompleted
+                                          ? DarkThemeColors.textSecondary
+                                          : DarkThemeColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                      decoration: task.isCompleted
+                                          ? TextDecoration.lineThrough
+                                          : TextDecoration.none,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      // Date badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _project.cardColor.withOpacity(
+                                            0.15,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.calendar_today_rounded,
+                                              size: 12,
+                                              color: _project.cardColor,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              dateString,
+                                              style: AppTextStyles.bodySmall
+                                                  .copyWith(
+                                                    color: _project.cardColor,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 12,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+
+                                      // Time badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: DarkThemeColors.background,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.access_time_rounded,
+                                              size: 12,
+                                              color:
+                                                  DarkThemeColors.textSecondary,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              task.time,
+                                              style: AppTextStyles.bodySmall
+                                                  .copyWith(
+                                                    color: DarkThemeColors
+                                                        .textSecondary,
+                                                    fontSize: 12,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              task.time,
-                              style: AppTextStyles.bodySmall.copyWith(
+
+                            // Expand/Edit button
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _expandedTaskId = _expandedTaskId == task.id
+                                      ? null
+                                      : task.id;
+                                });
+                              },
+                              icon: Icon(
+                                _expandedTaskId == task.id
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
                                 color: DarkThemeColors.textSecondary,
                               ),
                             ),
                           ],
                         ),
+
+                        // Expanded content (location, assigned user, actions)
+                        if (_expandedTaskId == task.id) ...[
+                          const SizedBox(height: 16),
+                          Divider(color: DarkThemeColors.border, height: 1),
+                          const SizedBox(height: 16),
+
+                          // Actions row
+                          Row(
+                            children: [
+                              // Assigned user
+                              if (task.assignedUserId != null) ...[
+                                UserAvatar(
+                                  user: DummyUsers.getUserById(
+                                    task.assignedUserId!,
+                                  ),
+                                  radius: 18,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  DummyUsers.getUserById(
+                                        task.assignedUserId!,
+                                      )?.name ??
+                                      'Assigned',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: DarkThemeColors.textSecondary,
+                                  ),
+                                ),
+                                const Spacer(),
+                              ] else
+                                const Spacer(),
+
+                              // Add subtask button
+                              IconButton(
+                                icon: Icon(
+                                  _addingSubtaskFor == task.id
+                                      ? Icons.close_rounded
+                                      : Icons.add_rounded,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _addingSubtaskFor =
+                                        _addingSubtaskFor == task.id
+                                        ? null
+                                        : task.id;
+                                  });
+                                },
+                                style: IconButton.styleFrom(
+                                  backgroundColor: DarkThemeColors.background,
+                                  foregroundColor: _project.cardColor,
+                                ),
+                                tooltip: 'Add subtask',
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Edit button
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined, size: 20),
+                                onPressed: () => _showEditTaskDialog(task),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: DarkThemeColors.background,
+                                  foregroundColor:
+                                      DarkThemeColors.textSecondary,
+                                ),
+                                tooltip: 'Edit task',
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      _addingSubtaskFor == task.id ? Icons.close : Icons.add,
-                      size: 20,
-                      color: DarkThemeColors.textSecondary,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _addingSubtaskFor = _addingSubtaskFor == task.id
-                            ? null
-                            : task.id;
-                      });
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip: 'Add subtask',
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: Icon(
-                      Icons.edit,
-                      size: 20,
-                      color: DarkThemeColors.textSecondary,
-                    ),
-                    onPressed: () => _showEditTaskDialog(task),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  UserAvatar(
-                    user: task.assignedUserId != null
-                        ? DummyUsers.getUserById(task.assignedUserId!)
-                        : null,
-                    radius: 16,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
           // Subtask input field
           if (_addingSubtaskFor == task.id)
             Padding(
-              padding: const EdgeInsets.only(left: 40, top: 8, right: 40),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _subtaskController,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: DarkThemeColors.textPrimary,
+              padding: const EdgeInsets.only(left: 16, top: 12, right: 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: DarkThemeColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: DarkThemeColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _subtaskController,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: DarkThemeColors.textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Enter subtask title...',
+                          hintStyle: AppTextStyles.bodySmall.copyWith(
+                            color: DarkThemeColors.textSecondary,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onSubmitted: (_) => _addSubtask(task.id),
                       ),
-                      decoration: InputDecoration(
-                        hintText: 'Enter subtask title...',
-                        hintStyle: AppTextStyles.bodySmall.copyWith(
-                          color: DarkThemeColors.textSecondary,
-                        ),
-                        filled: true,
-                        fillColor: DarkThemeColors.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                      onSubmitted: (_) => _addSubtask(task.id),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.send, size: 20),
-                    color: _project.cardColor,
-                    onPressed: () => _addSubtask(task.id),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.send_rounded, size: 20),
+                      color: _project.cardColor,
+                      onPressed: () => _addSubtask(task.id),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
               ),
             ),
+
           // Display subtasks
           if (_taskSubtasks[task.id] != null &&
               _taskSubtasks[task.id]!.isNotEmpty)
             _buildSubtasks(task.id),
+
           // Display location map card if task has location and is expanded
           if (_expandedTaskId == task.id &&
               task.latitude != null &&
               task.longitude != null)
-            TaskLocationMapCard(
-              locationName: task.locationName ?? 'Task Location',
-              latitude: task.latitude!,
-              longitude: task.longitude!,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TaskLocationMapScreen(
-                      locationName: task.locationName ?? 'Task Location',
-                      latitude: task.latitude!,
-                      longitude: task.longitude!,
-                      taskTitle: task.title,
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: TaskLocationMapCard(
+                locationName: task.locationName ?? 'Task Location',
+                latitude: task.latitude!,
+                longitude: task.longitude!,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TaskLocationMapScreen(
+                        locationName: task.locationName ?? 'Task Location',
+                        latitude: task.latitude!,
+                        longitude: task.longitude!,
+                        taskTitle: task.title,
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
         ],
       ),

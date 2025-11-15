@@ -582,6 +582,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                         ),
                       ),
+
+                      // Logout button (only show in edit mode)
+                      if (_isEditMode) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () async {
+                              // Show confirmation dialog
+                              final shouldLogout = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  backgroundColor: DarkThemeColors.surface,
+                                  title: Text(
+                                    'Logout',
+                                    style: AppTextStyles.headlineSmall.copyWith(
+                                      color: DarkThemeColors.textPrimary,
+                                    ),
+                                  ),
+                                  content: Text(
+                                    'Are you sure you want to logout?',
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      color: DarkThemeColors.textSecondary,
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: Text(
+                                        'Cancel',
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(
+                                              color:
+                                                  DarkThemeColors.textSecondary,
+                                            ),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: Text(
+                                        'Logout',
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(color: Colors.red),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (shouldLogout == true) {
+                                await Supabase.instance.client.auth.signOut();
+                              }
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.logout, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Logout',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
