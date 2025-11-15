@@ -15,6 +15,9 @@ import '../presentation/views/activity/activity_screen.dart';
 import '../presentation/views/reports/reports_screen.dart';
 import '../presentation/views/news/news_screen.dart';
 import '../presentation/views/news/news_detail_screen.dart';
+import '../presentation/views/notifications/notifications_screen.dart';
+import '../presentation/views/shared_items/shared_items_screen.dart';
+import '../presentation/widgets/project_loader_screen.dart';
 import '../presentation/widgets/app_shell_scaffold.dart';
 import '../data/models/news_model.dart';
 
@@ -34,6 +37,8 @@ class AppRoutes {
   static const String reports = '/reports';
   static const String news = '/news';
   static const String projectDetails = '/project-details';
+  static const String notifications = '/notifications';
+  static const String sharedItems = '/shared-items';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
@@ -76,6 +81,27 @@ class AppRoutes {
       GoRoute(
         path: signinVerification,
         builder: (context, state) => const SigninVerification(),
+      ),
+
+      // Notifications route (outside shell, no bottom nav)
+      GoRoute(
+        path: notifications,
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+
+      // Shared items route (outside shell, no bottom nav)
+      GoRoute(
+        path: sharedItems,
+        builder: (context, state) => const SharedItemsScreen(),
+      ),
+
+      // Project details route (outside shell, no bottom nav)
+      GoRoute(
+        path: '$projectDetails/:id',
+        builder: (context, state) {
+          final projectId = state.pathParameters['id'] ?? '';
+          return ProjectLoaderScreen(projectId: projectId);
+        },
       ),
 
       // Shell route with bottom navigation for main screens
