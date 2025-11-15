@@ -69,6 +69,7 @@ dependencies:
   country_picker: ^2.0.26
   firebase_core: ^4.2.1
   firebase_messaging: ^16.0.4
+  timeago: ^3.7.0
 
 dev_dependencies:
   flutter_test:

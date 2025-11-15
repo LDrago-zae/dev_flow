@@ -16,8 +16,10 @@ import 'package:dev_flow/data/repositories/project_repository.dart';
 import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
 import 'package:dev_flow/services/fcm_service.dart';
+import 'package:dev_flow/services/notification_service.dart';
 import 'package:dev_flow/presentation/widgets/responsive_layout.dart';
 import 'package:skeletonizer/skeletonizer.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -197,6 +199,29 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
 
+                        // Send notification if project assigned to someone
+                        if (project.assignedUserId != null) {
+                          final currentUser =
+                              Supabase.instance.client.auth.currentUser;
+                          if (project.assignedUserId != currentUser?.id) {
+                            try {
+                              await NotificationService().sendNotification(
+                                userId: project.assignedUserId!,
+                                type: 'project_assigned',
+                                title: 'New Project Assigned',
+                                body:
+                                    'You have been assigned to "${project.title}"',
+                                data: {
+                                  'project_id': project.id,
+                                  'project_title': project.title,
+                                },
+                              );
+                            } catch (e) {
+                              print('Failed to send project notification: $e');
+                            }
+                          }
+                        }
+
                         // Send FCM notification
                         final userId =
                             Supabase.instance.client.auth.currentUser?.id;
@@ -244,7 +269,28 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
 
-                        // Send FCM notification
+                        // Send notification if todo assigned to someone
+                        if (todo.assignedUserId != null) {
+                          final currentUser =
+                              Supabase.instance.client.auth.currentUser;
+                          // Only send if assigning to someone else
+                          if (todo.assignedUserId != currentUser?.id) {
+                            try {
+                              await NotificationService().sendNotification(
+                                userId: todo.assignedUserId!,
+                                type: 'task_assigned',
+                                title: 'New Task Assigned',
+                                body:
+                                    'You have been assigned to "${todo.title}"',
+                                data: {'task_id': todo.id},
+                              );
+                            } catch (e) {
+                              print('Failed to send todo notification: $e');
+                            }
+                          }
+                        }
+
+                        // Send FCM notification to self
                         final userId =
                             Supabase.instance.client.auth.currentUser?.id;
                         if (userId != null) {
@@ -284,14 +330,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header Section with logout
-                        HomeHeader(
-                          userName: _userName,
-                          isDark: isDark,
-                          onLogout: () async {
-                            await Supabase.instance.client.auth.signOut();
-                          },
-                        ),
+                        // Header Section with notification icon
+                        HomeHeader(userName: _userName, isDark: isDark),
                         const SizedBox(height: 24),
 
                         // Search Bar
@@ -347,6 +387,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         // Quick Todos List
                         _buildQuickTodosList(),
+                        const SizedBox(height: 32),
+
+                        // Shared with Me Button
+                        _buildSharedItemsButton(),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -681,6 +726,75 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       onToggleComplete: _toggleTaskCompletion,
       formatDate: _formatDate,
+    );
+  }
+
+  Widget _buildSharedItemsButton() {
+    return InkWell(
+      onTap: () {
+        context.push('/shared-items');
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.purple.withOpacity(0.2),
+              Colors.blue.withOpacity(0.2),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.purple.withOpacity(0.3), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.purple.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.people_outline_rounded,
+                color: Colors.purple,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Shared with Me',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'View projects & tasks shared by others',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white.withOpacity(0.5),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
