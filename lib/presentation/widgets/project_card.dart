@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dev_flow/data/models/project_model.dart';
+import 'package:dev_flow/presentation/widgets/project_member_avatars.dart';
 
 class ProjectCard extends StatelessWidget {
   final String title;
@@ -9,7 +10,9 @@ class ProjectCard extends StatelessWidget {
   final Color cardColor;
   final String category;
   final ProjectPriority priority;
+  final String projectId;
   final VoidCallback? onTap;
+  final VoidCallback? onMorePressed;
 
   const ProjectCard({
     super.key,
@@ -19,8 +22,10 @@ class ProjectCard extends StatelessWidget {
     required this.progress,
     required this.category,
     required this.priority,
+    required this.projectId,
     this.cardColor = const Color(0xFF0062FF),
     this.onTap,
+    this.onMorePressed,
   });
 
   @override
@@ -58,16 +63,20 @@ class ProjectCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.more_horiz,
-                    color: Colors.white,
-                    size: 20,
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: onMorePressed,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.more_horiz,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],
@@ -115,13 +124,24 @@ class ProjectCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                Text(
-                  '${(progress * 100).toInt()}%',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    // Member avatars
+                    ProjectMemberAvatars(
+                      projectId: projectId,
+                      maxVisible: 3,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${(progress * 100).toInt()}%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

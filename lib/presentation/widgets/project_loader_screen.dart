@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dev_flow/data/models/project_model.dart';
-import 'package:dev_flow/data/repositories/project_repository.dart';
+import 'package:dev_flow/data/repositories/offline_project_repository.dart';
 import 'package:dev_flow/presentation/views/project_details/project_details_screen.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,7 +15,8 @@ class ProjectLoaderScreen extends StatefulWidget {
 }
 
 class _ProjectLoaderScreenState extends State<ProjectLoaderScreen> {
-  final ProjectRepository _projectRepository = ProjectRepository();
+  final OfflineProjectRepository _projectRepository =
+      OfflineProjectRepository();
   Project? _project;
   bool _isLoading = true;
   String? _error;

@@ -160,6 +160,7 @@ class _UserDropdownState extends State<UserDropdown> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             user.name,
@@ -167,12 +168,16 @@ class _UserDropdownState extends State<UserDropdown> {
                               color: DarkThemeColors.textPrimary,
                               fontWeight: FontWeight.w500,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             user.email,
                             style: AppTextStyles.bodySmall.copyWith(
                               color: DarkThemeColors.textSecondary,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
