@@ -9,6 +9,8 @@ import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:dev_flow/services/sync_service.dart';
 
 // Top-level background message handler
 @pragma('vm:entry-point')
@@ -73,6 +75,11 @@ void main() async {
   final fcmService = FCMService();
   await fcmService.initialize();
 
+  // Start offline sync (applies any pending local changes and listens
+  // for connectivity changes to keep Supabase in sync).
+  await SyncService.instance.syncPendingChanges();
+  SyncService.instance.start();
+
   runApp(const MyApp());
 }
 
@@ -92,6 +99,7 @@ class MyApp extends StatelessWidget {
           // background: Colors.black,
           primary: DarkThemeColors.primary100,
         ),
+        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
       ),
     );
   }
