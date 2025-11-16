@@ -32,8 +32,8 @@ class NewsArticle {
       content: json['content'] as String?,
       sourceName: json['source'] != null
           ? (json['source'] is Map
-              ? json['source']['name'] as String?
-              : json['source'] as String?)
+                ? json['source']['name'] as String?
+                : json['source'] as String?)
           : null,
     );
   }
@@ -72,11 +72,14 @@ class NewsResponse {
     return NewsResponse(
       status: json['status'] as String? ?? 'error',
       totalResults: json['totalResults'] as int? ?? 0,
-      articles: (json['articles'] as List<dynamic>?)
-              ?.map((article) => NewsArticle.fromJson(article as Map<String, dynamic>))
+      articles:
+          (json['articles'] as List<dynamic>?)
+              ?.map(
+                (article) =>
+                    NewsArticle.fromJson(article as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
   }
 }
-
