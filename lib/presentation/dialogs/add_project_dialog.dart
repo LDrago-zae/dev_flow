@@ -7,25 +7,28 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AddProjectDialog {
   static void show(
     BuildContext context, {
-    required Function(Project) onProjectCreated,
+    required Function(Project, String?) onProjectCreated,
   }) {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     final deadlineController = TextEditingController();
     final categoryController = TextEditingController();
     double progress = 0.0;
-    Color selectedColor = LightThemeColors.cardBlue;
+    Color selectedColor = DarkThemeColors.cardBlue;
     ProjectPriority selectedPriority = ProjectPriority.medium;
+    String selectedTemplateKey = 'none';
 
+    // Curated project card palette that fits the dark theme
+    // Curated project card palette that fits the dark theme
     final List<Color> colorOptions = [
-      LightThemeColors.cardBlue,
-      LightThemeColors.cardRed,
-      LightThemeColors.cardGold,
-      LightThemeColors.cardGreen,
-      LightThemeColors.cardPurple,
-      LightThemeColors.cardTeal,
-      LightThemeColors.cardIndigo,
-      LightThemeColors.cardPink,
+      DarkThemeColors.cardBlue,
+      DarkThemeColors.cardIndigo,
+      DarkThemeColors.cardPurple,
+      DarkThemeColors.cardTeal,
+      DarkThemeColors.cardPink,
+      DarkThemeColors.cardGold,
+      DarkThemeColors.cardGreen,
+      DarkThemeColors.cardRed,
     ];
 
     showModalBottomSheet(
@@ -90,6 +93,42 @@ class AddProjectDialog {
                 _buildTextField(
                   controller: categoryController,
                   hint: 'e.g., UI/UX, Development, Marketing',
+                ),
+                const SizedBox(height: 20),
+
+                _buildLabel('Template'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    _buildTemplateChip(
+                      label: 'None',
+                      isSelected: selectedTemplateKey == 'none',
+                      onTap: () {
+                        setModalState(() {
+                          selectedTemplateKey = 'none';
+                        });
+                      },
+                    ),
+                    _buildTemplateChip(
+                      label: 'Design Sprint',
+                      isSelected: selectedTemplateKey == 'design_sprint',
+                      onTap: () {
+                        setModalState(() {
+                          selectedTemplateKey = 'design_sprint';
+                        });
+                      },
+                    ),
+                    _buildTemplateChip(
+                      label: 'Product Launch',
+                      isSelected: selectedTemplateKey == 'product_launch',
+                      onTap: () {
+                        setModalState(() {
+                          selectedTemplateKey = 'product_launch';
+                        });
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
 
@@ -226,39 +265,53 @@ class AddProjectDialog {
                 // Color Selection
                 _buildLabel('Card Color'),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 12,
-                  children: colorOptions.map((color) {
-                    final isSelected = selectedColor == color;
-                    return GestureDetector(
-                      onTap: () {
-                        setModalState(() {
-                          selectedColor = color;
-                        });
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected
-                                ? DarkThemeColors.primary100
-                                : DarkThemeColors.border,
-                            width: isSelected ? 3 : 1,
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: colorOptions.map((color) {
+                      final isSelected = selectedColor == color;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () {
+                            setModalState(() {
+                              selectedColor = color;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.white
+                                    : DarkThemeColors.border,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: [
+                                if (isSelected)
+                                  BoxShadow(
+                                    color: color.withOpacity(0.6),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
+                                  ),
+                              ],
+                            ),
+                            child: isSelected
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 18,
+                                  )
+                                : null,
                           ),
                         ),
-                        child: isSelected
-                            ? const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 20,
-                              )
-                            : null,
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
                 const SizedBox(height: 32),
 
@@ -286,7 +339,12 @@ class AddProjectDialog {
                               Supabase.instance.client.auth.currentUser?.id ??
                               '',
                         );
-                        onProjectCreated(project);
+                        onProjectCreated(
+                          project,
+                          selectedTemplateKey == 'none'
+                              ? null
+                              : selectedTemplateKey,
+                        );
                         Navigator.pop(context);
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -387,6 +445,40 @@ class AddProjectDialog {
           borderSide: BorderSide(color: DarkThemeColors.primary100, width: 1.5),
         ),
         suffixIcon: suffixIcon,
+      ),
+    );
+  }
+
+  static Widget _buildTemplateChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? DarkThemeColors.primary100.withOpacity(0.12)
+              : DarkThemeColors.background,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? DarkThemeColors.primary100
+                : DarkThemeColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? DarkThemeColors.primary100
+                : DarkThemeColors.textSecondary,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }

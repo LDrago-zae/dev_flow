@@ -15,6 +15,8 @@ class AddQuickTodoDialog {
     DateTime selectedDate = DateTime.now();
     TimeOfDay selectedTime = TimeOfDay.now();
     String? selectedUserId;
+    bool isRecurring = false;
+    String? recurrencePattern;
 
     showModalBottomSheet(
       context: context,
@@ -60,6 +62,76 @@ class AddQuickTodoDialog {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Recurrence
+                  _buildLabel('Repeat'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      _buildRecurrenceChip(
+                        'None',
+                        !isRecurring || recurrencePattern == null,
+                        () {
+                          setModalState(() {
+                            isRecurring = false;
+                            recurrencePattern = null;
+                          });
+                        },
+                      ),
+                      _buildRecurrenceChip(
+                        'Daily',
+                        recurrencePattern == 'daily',
+                        () {
+                          setModalState(() {
+                            isRecurring = true;
+                            recurrencePattern = 'daily';
+                          });
+                        },
+                      ),
+                      _buildRecurrenceChip(
+                        'Weekdays',
+                        recurrencePattern == 'weekdays',
+                        () {
+                          setModalState(() {
+                            isRecurring = true;
+                            recurrencePattern = 'weekdays';
+                          });
+                        },
+                      ),
+                      _buildRecurrenceChip(
+                        'Weekly',
+                        recurrencePattern == 'weekly',
+                        () {
+                          setModalState(() {
+                            isRecurring = true;
+                            recurrencePattern = 'weekly';
+                          });
+                        },
+                      ),
+                      _buildRecurrenceChip(
+                        'Monthly',
+                        recurrencePattern == 'monthly',
+                        () {
+                          setModalState(() {
+                            isRecurring = true;
+                            recurrencePattern = 'monthly';
+                          });
+                        },
+                      ),
+                      _buildRecurrenceChip(
+                        'Yearly',
+                        recurrencePattern == 'yearly',
+                        () {
+                          setModalState(() {
+                            isRecurring = true;
+                            recurrencePattern = 'yearly';
+                          });
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
 
@@ -234,6 +306,8 @@ class AddQuickTodoDialog {
                                       .currentUser
                                       ?.id ??
                                   '',
+                              isRecurring: isRecurring,
+                              recurrencePattern: recurrencePattern,
                             );
                             print('Creating todo: ${todo.toJson()}');
                             onTodoCreated(todo);
@@ -323,6 +397,40 @@ class AddQuickTodoDialog {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: DarkThemeColors.primary100, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildRecurrenceChip(
+    String label,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? DarkThemeColors.primary100.withOpacity(0.12)
+              : DarkThemeColors.background,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? DarkThemeColors.primary100
+                : DarkThemeColors.textSecondary.withOpacity(0.2),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? DarkThemeColors.primary100
+                : DarkThemeColors.textPrimary,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
         ),
       ),
     );
