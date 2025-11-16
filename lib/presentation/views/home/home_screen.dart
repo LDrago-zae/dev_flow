@@ -7,22 +7,25 @@ import 'package:dev_flow/presentation/widgets/project_card.dart';
 import 'package:dev_flow/presentation/widgets/home/home_header.dart';
 import 'package:dev_flow/presentation/widgets/home/section_header.dart';
 import 'package:dev_flow/presentation/widgets/home/quick_todo_list.dart';
+import 'package:dev_flow/presentation/widgets/project_details/kanban_board_widget.dart';
 import 'package:dev_flow/presentation/widgets/home/fab_options_dialog.dart';
 import 'package:dev_flow/presentation/dialogs/add_project_dialog.dart';
 import 'package:dev_flow/presentation/dialogs/add_quick_todo_dialog.dart';
 import 'package:dev_flow/presentation/views/project_details/project_details_screen.dart';
 import 'package:dev_flow/presentation/views/activity/daily_task_detail_screen.dart';
-import 'package:dev_flow/data/repositories/project_repository.dart';
-import 'package:dev_flow/data/repositories/task_repository.dart';
+import 'package:dev_flow/data/repositories/offline_project_repository.dart';
+import 'package:dev_flow/data/repositories/offline_task_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
 import 'package:dev_flow/services/fcm_service.dart';
 import 'package:dev_flow/services/notification_service.dart';
 import 'package:dev_flow/presentation/widgets/responsive_layout.dart';
+import 'package:dev_flow/presentation/widgets/animated_fade_slide.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,10 +34,15 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  // Supabase integration
-  final ProjectRepository _projectRepository = ProjectRepository();
-  final TaskRepository _taskRepository = TaskRepository();
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  // Data layer (offline-first repositories)
+  final OfflineProjectRepository _projectRepository =
+      OfflineProjectRepository();
+  final OfflineTaskRepository _taskRepository = OfflineTaskRepository();
   final RealtimeService _realtimeService = RealtimeService();
 
   late StreamSubscription<Project> _projectSubscription;
@@ -44,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Task> _quickTodos = [];
   List<Project> _filteredProjects = [];
   List<Task> _filteredQuickTodos = [];
-
+  bool _isQuickTodosKanbanView = false;
   bool _isLoading = true;
   String? _error;
   String _userName = 'User';
@@ -55,7 +63,17 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeData();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh data when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      _loadData();
+    }
   }
 
   Future<void> _initializeData() async {
@@ -99,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
+    // Don't clear existing data during refresh - keep showing old data with skeleton
     setState(() => _isLoading = true);
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
@@ -125,6 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_error != null) {
@@ -182,9 +202,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 AddProjectDialog.show(
                   context,
-                  onProjectCreated: (project) async {
+                  onProjectCreated: (project, templateKey) async {
                     try {
                       await _projectRepository.createProject(project);
+                      await _createTemplateTasksForProject(
+                        project,
+                        templateKey,
+                      );
                       // Immediately add to list for instant UI update
                       if (mounted) {
                         setState(() {
@@ -381,12 +405,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Filter Chips
-                        _buildFilterChips(),
+                        // Filter Chips and List/Board toggle
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFilterChips(),
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: _buildQuickTodosViewToggle(),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
 
                         // Quick Todos List
-                        _buildQuickTodosList(),
+                        AnimatedSwitchFadeSlide(
+                          key: ValueKey(_isQuickTodosKanbanView),
+                          child: _isQuickTodosKanbanView
+                              ? _buildQuickTodosKanban()
+                              : _buildQuickTodosList(),
+                        ),
                         const SizedBox(height: 32),
 
                         // Shared with Me Button
@@ -419,6 +458,89 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     });
     _filterData();
+  }
+
+  Future<void> _createTemplateTasksForProject(
+    Project project,
+    String? templateKey,
+  ) async {
+    if (templateKey == null) return;
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final now = DateTime.now();
+    final List<Map<String, dynamic>> definitions;
+
+    switch (templateKey) {
+      case 'design_sprint':
+        definitions = [
+          {'title': 'Understand the problem', 'offsetDays': 0, 'time': '10:00'},
+          {'title': 'Map user journey', 'offsetDays': 1, 'time': '11:00'},
+          {'title': 'Sketch solutions', 'offsetDays': 2, 'time': '11:00'},
+          {'title': 'Prototype key flows', 'offsetDays': 3, 'time': '10:00'},
+          {
+            'title': 'User testing & insights',
+            'offsetDays': 4,
+            'time': '15:00',
+          },
+        ];
+        break;
+      case 'product_launch':
+        definitions = [
+          {
+            'title': 'Define launch goals & KPIs',
+            'offsetDays': 0,
+            'time': '10:00',
+          },
+          {
+            'title': 'Prepare landing page & assets',
+            'offsetDays': 1,
+            'time': '11:00',
+          },
+          {
+            'title': 'Plan marketing channels',
+            'offsetDays': 2,
+            'time': '14:00',
+          },
+          {'title': 'Soft launch & QA', 'offsetDays': 3, 'time': '11:00'},
+          {
+            'title': 'Full launch & monitoring',
+            'offsetDays': 4,
+            'time': '09:00',
+          },
+        ];
+        break;
+      default:
+        return;
+    }
+
+    for (final def in definitions) {
+      final offsetDays = def['offsetDays'] as int;
+      final date = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).add(Duration(days: offsetDays));
+      final title = def['title'] as String;
+      final time = def['time'] as String;
+
+      final task = Task(
+        id: '',
+        title: title,
+        date: date,
+        time: time,
+        isCompleted: false,
+        projectId: project.id,
+        userId: userId,
+      );
+
+      try {
+        await _taskRepository.createTask(task);
+      } catch (_) {
+        // Ignore template task creation failures for now
+      }
+    }
   }
 
   void _updateQuickTodoInList(Task updatedTask) {
@@ -459,7 +581,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _toggleTaskCompletion(Task task) async {
     // Optimistically update UI
-    final updatedTask = task.copyWith(completed: !task.completed);
+    final wasCompleted = task.completed;
+    final newCompleted = !task.completed;
+    final updatedTask = task.copyWith(
+      completed: newCompleted,
+      isCompleted: newCompleted,
+    );
     _updateQuickTodoInList(updatedTask);
 
     try {
@@ -477,6 +604,11 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
       }
+
+      // If this is a recurring task and we just completed it, create the next occurrence
+      if (!wasCompleted && updatedTask.isRecurring) {
+        await _createNextRecurringQuickTodo(updatedTask);
+      }
     } catch (e) {
       // Revert on error
       _updateQuickTodoInList(task);
@@ -488,12 +620,67 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _createNextRecurringQuickTodo(Task baseTask) async {
+    final pattern = baseTask.recurrencePattern;
+    if (pattern == null || pattern.isEmpty) return;
+
+    DateTime nextDate;
+    switch (pattern) {
+      case 'daily':
+        nextDate = baseTask.date.add(const Duration(days: 1));
+        break;
+      case 'weekdays':
+        nextDate = baseTask.date.add(const Duration(days: 1));
+        while (nextDate.weekday == DateTime.saturday ||
+            nextDate.weekday == DateTime.sunday) {
+          nextDate = nextDate.add(const Duration(days: 1));
+        }
+        break;
+      case 'weekly':
+        nextDate = baseTask.date.add(const Duration(days: 7));
+        break;
+      case 'monthly':
+        nextDate = DateTime(
+          baseTask.date.year,
+          baseTask.date.month + 1,
+          baseTask.date.day,
+        );
+        break;
+      case 'yearly':
+        nextDate = DateTime(
+          baseTask.date.year + 1,
+          baseTask.date.month,
+          baseTask.date.day,
+        );
+        break;
+      default:
+        return;
+    }
+
+    final nextTask = baseTask.copyWith(
+      id: const Uuid().v4(),
+      date: nextDate,
+      isCompleted: false,
+      completed: false,
+      completedAt: null,
+      clearCompletedAt: true,
+    );
+
+    try {
+      final created = await _taskRepository.createTask(nextTask);
+      _updateQuickTodoInList(created);
+    } catch (_) {
+      // If creating the next recurrence fails, ignore for now
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _searchController.dispose();
     _projectSubscription.cancel();
     _taskSubscription.cancel();
     _realtimeService.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -548,47 +735,88 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Show skeleton items when loading
-    final projectsToDisplay = _isLoading && _filteredProjects.isEmpty
-        ? List.generate(
-            2,
-            (index) => Project(
-              id: 'skeleton_$index',
-              title: 'Loading Project Title',
-              description: 'Loading project description text here',
-              deadline: DateTime.now()
-                  .add(const Duration(days: 7))
-                  .toIso8601String()
-                  .split('T')[0],
-              createdDate: DateTime.now(),
-              progress: 0.5,
-              tasks: [],
-              userId: '',
-              cardColor: DarkThemeColors.primary100,
-              category: 'Development',
-              priority: ProjectPriority.medium,
-              status: ProjectStatus.ongoing,
-            ),
-          )
-        : _filteredProjects;
+    // Always show actual projects if they exist - skeleton will overlay with their real colors
+    final projectsToDisplay = _filteredProjects;
 
     return Column(
       children: projectsToDisplay.asMap().entries.map((entry) {
         final index = entry.key;
         final project = entry.value;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: ProjectCard(
-            title: project.title,
-            description: project.description,
-            deadline: project.deadline,
-            progress: project.progress,
-            cardColor: project.cardColor,
-            category: project.category,
-            priority: project.priority,
-            onTap: _isLoading
-                ? () {}
-                : () async {
+        return AnimatedFadeSlide(
+          delay: index * 0.1,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: ProjectCard(
+              title: project.title,
+              description: project.description,
+              deadline: project.deadline,
+              progress: project.progress,
+              cardColor: project.cardColor,
+              category: project.category,
+              priority: project.priority,
+              projectId: project.id,
+              onTap: _isLoading
+                  ? () {}
+                  : () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProjectDetailsScreen(
+                            project: project,
+                            onUpdate: (updated) {
+                              setState(() {
+                                _projects[index] = updated;
+                              });
+                              _filterData();
+                            },
+                          ),
+                        ),
+                      );
+                      // Refresh data after returning from project details
+                      await _loadData();
+                    },
+              onMorePressed: _isLoading
+                  ? null
+                  : () => _showProjectActionsSheet(project, index),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showProjectActionsSheet(Project project, int index) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.white),
+                  title: const Text(
+                    'Edit project',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    if (_isLoading) return;
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -598,15 +826,62 @@ class _HomeScreenState extends State<HomeScreen> {
                             setState(() {
                               _projects[index] = updated;
                             });
+                            _filterData();
                           },
                         ),
                       ),
                     );
+                    // Refresh data after returning from project details
+                    await _loadData();
                   },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
+                  title: const Text(
+                    'Delete project',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _deleteProject(project, index);
+                  },
+                ),
+              ],
+            ),
           ),
         );
-      }).toList(),
+      },
     );
+  }
+
+  Future<void> _deleteProject(Project project, int index) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    setState(() {
+      _projects.removeWhere((p) => p.id == project.id);
+    });
+    _filterData();
+
+    try {
+      await _projectRepository.deleteProject(project.id);
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Project deleted successfully'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        await _loadData();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('Failed to delete project: $e')),
+        );
+      }
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -632,26 +907,154 @@ class _HomeScreenState extends State<HomeScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: filters.map((filter) {
+        children: filters.asMap().entries.map((entry) {
+          final index = entry.key;
+          final filter = entry.value;
           final isSelected = _selectedFilter == filter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(filter),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedFilter = filter;
-                });
-                _filterData();
-              },
-              backgroundColor: Colors.black,
-              selectedColor: DarkThemeColors.surface,
-              checkmarkColor: DarkThemeColors.primary100,
+          return AnimatedFadeSlide(
+            delay: index * 0.05,
+            duration: const Duration(milliseconds: 400),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: FilterChip(
+                  label: Text(
+                    filter,
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : DarkThemeColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedFilter = filter;
+                    });
+                    _filterData();
+                  },
+                  backgroundColor: Colors.black,
+                  selectedColor: Colors.black,
+                  checkmarkColor: DarkThemeColors.primary100,
+                ),
+              ),
             ),
           );
         }).toList(),
       ),
+    );
+  }
+
+  Widget _buildQuickTodosViewToggle() {
+    return AnimatedFadeSlide(
+      delay: 0.2,
+      duration: const Duration(milliseconds: 400),
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isQuickTodosKanbanView = !_isQuickTodosKanbanView;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DarkThemeColors.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isQuickTodosKanbanView ? Icons.view_column : Icons.view_agenda,
+                size: 16,
+                color: DarkThemeColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _isQuickTodosKanbanView ? 'Board' : 'List',
+                style: const TextStyle(
+                  color: DarkThemeColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickTodosKanban() {
+    if (_filteredQuickTodos.isEmpty && !_isLoading) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: DarkThemeColors.border, width: 1),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.task_alt,
+              size: 48,
+              color: DarkThemeColors.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isEmpty
+                  ? (_quickTodos.isEmpty
+                        ? '✨ Start conquering your day!'
+                        : 'No ${_selectedFilter.toLowerCase()} todos')
+                  : 'No todos found',
+              style: const TextStyle(
+                color: DarkThemeColors.textSecondary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (_searchQuery.isEmpty) const SizedBox(height: 8),
+            if (_searchQuery.isEmpty)
+              const Text(
+                'Tap the + button to add your quick tasks',
+                style: TextStyle(
+                  color: DarkThemeColors.textSecondary,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+          ],
+        ),
+      );
+    }
+
+    final todosToDisplay = _isLoading && _filteredQuickTodos.isEmpty
+        ? List.generate(
+            3,
+            (index) => Task(
+              id: 'skeleton_$index',
+              title: 'Loading Todo Title',
+              date: DateTime.now(),
+              time: '09:00',
+              userId: '',
+            ),
+          )
+        : _filteredQuickTodos;
+
+    return KanbanBoardWidget(
+      tasks: todosToDisplay,
+      projectCardColor: DarkThemeColors.primary100,
+      onToggleCompletion: _toggleTaskCompletion,
     );
   }
 
@@ -716,13 +1119,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return QuickTodoList(
       todos: todosToDisplay,
-      onTodoTap: (todo) {
-        Navigator.push(
+      onTodoTap: (todo) async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => DailyTaskDetailScreen(task: todo),
           ),
         );
+        // Refresh data after returning from task detail
+        await _loadData();
       },
       onToggleComplete: _toggleTaskCompletion,
       formatDate: _formatDate,

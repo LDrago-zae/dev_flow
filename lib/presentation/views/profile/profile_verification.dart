@@ -102,5 +102,4 @@ class _ProfileVerificationState extends State<ProfileVerification> {
       ),
     );
   }
-
 }

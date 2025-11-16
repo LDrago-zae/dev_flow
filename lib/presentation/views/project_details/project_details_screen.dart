@@ -12,12 +12,18 @@ import 'package:dev_flow/presentation/widgets/user_dropdown.dart';
 import 'package:dev_flow/presentation/dialogs/add_edit_task_dialog.dart';
 import 'package:dev_flow/presentation/widgets/task_location_map_card.dart';
 import 'package:dev_flow/presentation/views/task_location_map_screen.dart';
+import 'package:dev_flow/presentation/widgets/project_details/kanban_board_widget.dart';
+import 'package:dev_flow/presentation/widgets/project_member_avatars.dart';
+import 'package:dev_flow/presentation/dialogs/manage_members_dialog.dart';
+import 'package:dev_flow/presentation/dialogs/project_attachments_dialog.dart';
+import 'package:dev_flow/presentation/widgets/animated_fade_slide.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:dev_flow/data/repositories/task_repository.dart';
+import 'package:dev_flow/data/repositories/offline_task_repository.dart';
 import 'package:dev_flow/data/repositories/subtask_repository.dart';
-import 'package:dev_flow/data/repositories/project_repository.dart';
+import 'package:dev_flow/data/repositories/offline_project_repository.dart';
 import 'package:dev_flow/data/repositories/shared_items_repository.dart';
+import 'package:dev_flow/data/repositories/project_members_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
 import 'package:dev_flow/services/fcm_service.dart';
 import 'package:dev_flow/services/notification_service.dart';
@@ -43,6 +49,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   late Project _project;
   String _selectedTab = 'All Task';
   late List<Task> _filteredTasks;
+  bool _isKanbanView = false;
   final TextEditingController _taskTitleController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
@@ -51,10 +58,11 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   String? _selectedTaskUserId;
   String? _selectedProjectUserId;
 
-  // Supabase integration
-  final TaskRepository _taskRepository = TaskRepository();
+  // Data layer (offline-first repositories)
+  final OfflineTaskRepository _taskRepository = OfflineTaskRepository();
   final SubtaskRepository _subtaskRepository = SubtaskRepository();
-  final ProjectRepository _projectRepository = ProjectRepository();
+  final OfflineProjectRepository _projectRepository =
+      OfflineProjectRepository();
   final SharedItemsRepository _sharedItemsRepository = SharedItemsRepository();
   final RealtimeService _realtimeService = RealtimeService();
   final ImagePicker _imagePicker = ImagePicker();
@@ -135,6 +143,162 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _createNextRecurringTask(Task baseTask) async {
+    final pattern = baseTask.recurrencePattern;
+    if (pattern == null || pattern.isEmpty) return;
+
+    DateTime nextDate;
+    switch (pattern) {
+      case 'daily':
+        nextDate = baseTask.date.add(const Duration(days: 1));
+        break;
+      case 'weekdays':
+        nextDate = baseTask.date.add(const Duration(days: 1));
+        while (nextDate.weekday == DateTime.saturday ||
+            nextDate.weekday == DateTime.sunday) {
+          nextDate = nextDate.add(const Duration(days: 1));
+        }
+        break;
+      case 'weekly':
+        nextDate = baseTask.date.add(const Duration(days: 7));
+        break;
+      case 'monthly':
+        nextDate = DateTime(
+          baseTask.date.year,
+          baseTask.date.month + 1,
+          baseTask.date.day,
+        );
+        break;
+      case 'yearly':
+        nextDate = DateTime(
+          baseTask.date.year + 1,
+          baseTask.date.month,
+          baseTask.date.day,
+        );
+        break;
+      default:
+        return;
+    }
+
+    final nextTask = baseTask.copyWith(
+      id: const Uuid().v4(),
+      date: nextDate,
+      isCompleted: false,
+      completed: false,
+      completedAt: null,
+      clearCompletedAt: true,
+    );
+
+    try {
+      await _taskRepository.createTask(nextTask);
+    } catch (_) {
+      // If creating the next recurrence fails, we silently ignore for now
+    }
+  }
+
+  Future<void> _addTemplateTasksToProject(String templateKey) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final now = DateTime.now();
+    final List<Map<String, dynamic>> definitions;
+
+    switch (templateKey) {
+      case 'design_sprint':
+        definitions = [
+          {'title': 'Understand the problem', 'offsetDays': 0, 'time': '10:00'},
+          {'title': 'Map user journey', 'offsetDays': 1, 'time': '11:00'},
+          {'title': 'Sketch solutions', 'offsetDays': 2, 'time': '11:00'},
+          {'title': 'Prototype key flows', 'offsetDays': 3, 'time': '10:00'},
+          {
+            'title': 'User testing & insights',
+            'offsetDays': 4,
+            'time': '15:00',
+          },
+        ];
+        break;
+      case 'product_launch':
+        definitions = [
+          {
+            'title': 'Define launch goals & KPIs',
+            'offsetDays': 0,
+            'time': '10:00',
+          },
+          {
+            'title': 'Prepare landing page & assets',
+            'offsetDays': 1,
+            'time': '11:00',
+          },
+          {
+            'title': 'Plan marketing channels',
+            'offsetDays': 2,
+            'time': '14:00',
+          },
+          {'title': 'Soft launch & QA', 'offsetDays': 3, 'time': '11:00'},
+          {
+            'title': 'Full launch & monitoring',
+            'offsetDays': 4,
+            'time': '09:00',
+          },
+        ];
+        break;
+      default:
+        return;
+    }
+
+    final newTasks = <Task>[];
+
+    for (final def in definitions) {
+      final offsetDays = def['offsetDays'] as int;
+      final date = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).add(Duration(days: offsetDays));
+      final title = def['title'] as String;
+      final time = def['time'] as String;
+
+      final task = Task(
+        id: '',
+        title: title,
+        date: date,
+        time: time,
+        isCompleted: false,
+        projectId: _project.id,
+        userId: userId,
+      );
+
+      try {
+        final created = await _taskRepository.createTask(task);
+        newTasks.add(created);
+      } catch (_) {}
+    }
+
+    if (newTasks.isEmpty || !mounted) return;
+
+    setState(() {
+      final updatedTasks = [..._project.tasks, ...newTasks];
+      final completedCount = updatedTasks.where((t) => t.isCompleted).length;
+      final newProgress = updatedTasks.isEmpty
+          ? 0.0
+          : completedCount / updatedTasks.length;
+
+      _project = _project.copyWith(tasks: updatedTasks, progress: newProgress);
+      widget.onUpdate(_project);
+      _updateFilteredTasks();
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Template tasks added to project'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -347,6 +511,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
   Future<void> _toggleTaskCompletion(Task task) async {
     // Optimistic update - immediately update UI
+    final wasCompleted = task.completed;
     final now = DateTime.now();
     final isNowCompleted = !task.completed;
     final updatedTask = task.copyWith(
@@ -359,6 +524,11 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
     try {
       await _taskRepository.updateTask(updatedTask);
+
+      // If this is a recurring task and we just completed it, create the next occurrence
+      if (!wasCompleted && isNowCompleted && updatedTask.isRecurring) {
+        await _createNextRecurringTask(updatedTask);
+      }
 
       // Send FCM notification when task is completed
       if (isNowCompleted) {
@@ -657,6 +827,8 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             locationName,
             latitude,
             longitude,
+            isRecurring,
+            recurrencePattern,
           ) async {
             final updatedTask = task.copyWith(
               title: title,
@@ -667,6 +839,8 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
               locationName: locationName,
               latitude: latitude,
               longitude: longitude,
+              isRecurring: isRecurring,
+              recurrencePattern: recurrencePattern,
             );
 
             // Optimistically update UI
@@ -1043,144 +1217,276 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                           const SizedBox(height: 20),
 
                           // Created Date
-                          Text(
-                            '${_formatDate(_project.createdDate)} (created)',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: DarkThemeColors.textSecondary,
+                          AnimatedFadeSlide(
+                            delay: 0.0,
+                            child: Text(
+                              '${_formatDate(_project.createdDate)} (created)',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: DarkThemeColors.textSecondary,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
 
-                          // Title
-                          Text(
-                            _project.title,
-                            style: AppTextStyles.headlineSmall.copyWith(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: DarkThemeColors.textPrimary,
+                          // Title and Member Avatars Row
+                          AnimatedFadeSlide(
+                            delay: 0.1,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _project.title,
+                                    style: AppTextStyles.headlineSmall.copyWith(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: DarkThemeColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ProjectMemberAvatars(
+                                  projectId: _project.id,
+                                  maxVisible: 4,
+                                  size: 32,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Action Buttons Row
+                          AnimatedFadeSlide(
+                            delay: 0.2,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      final membersRepo =
+                                          ProjectMembersRepository();
+                                      final members = await membersRepo
+                                          .getProjectMembers(_project.id);
+                                      if (!mounted) return;
+                                      await showModalBottomSheet(
+                                        context: context,
+                                        backgroundColor: Colors.transparent,
+                                        isScrollControlled: true,
+                                        builder: (ctx) => ManageMembersDialog(
+                                          projectId: _project.id,
+                                          currentMembers: members,
+                                          onMembersChanged: () {
+                                            setState(() {
+                                              // Refresh UI to show updated members
+                                            });
+                                          },
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.group, size: 18),
+                                    label: const Text('Members'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor:
+                                          DarkThemeColors.primary100,
+                                      side: BorderSide(
+                                        color: DarkThemeColors.primary100
+                                            .withOpacity(0.5),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await showDialog(
+                                        context: context,
+                                        builder: (ctx) => ProjectAttachmentsDialog(
+                                          projectId: _project.id,
+                                          onAttachmentsChanged: () {
+                                            // Optional: refresh any attachment-related UI
+                                          },
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.attach_file,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Attachments'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor:
+                                          DarkThemeColors.primary100,
+                                      side: BorderSide(
+                                        color: DarkThemeColors.primary100
+                                            .withOpacity(0.5),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 12),
 
                           // Description
-                          Text(
-                            _project.description,
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: DarkThemeColors.textSecondary,
-                              height: 1.5,
+                          AnimatedFadeSlide(
+                            delay: 0.3,
+                            child: Text(
+                              _project.description,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: DarkThemeColors.textSecondary,
+                                height: 1.5,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
                           // Status and Deadline Row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Status',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        color: DarkThemeColors.textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _getStatusColor(
-                                          _project.status,
-                                        ).withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: _getStatusColor(
-                                            _project.status,
-                                          ).withOpacity(0.5),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        _getStatusText(_project.status),
+                          AnimatedFadeSlide(
+                            delay: 0.4,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Status',
                                         style: AppTextStyles.bodySmall.copyWith(
-                                          color: _getStatusColor(
-                                            _project.status,
-                                          ),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Deadline',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        color: DarkThemeColors.textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.access_time,
-                                          size: 16,
                                           color: DarkThemeColors.textSecondary,
                                         ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          _project.deadline,
-                                          style: AppTextStyles.bodyMedium
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(
+                                            _project.status,
+                                          ).withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          border: Border.all(
+                                            color: _getStatusColor(
+                                              _project.status,
+                                            ).withOpacity(0.5),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _getStatusText(_project.status),
+                                          style: AppTextStyles.bodySmall
                                               .copyWith(
-                                                color:
-                                                    DarkThemeColors.textPrimary,
+                                                color: _getStatusColor(
+                                                  _project.status,
+                                                ),
+                                                fontWeight: FontWeight.w600,
                                               ),
                                         ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Deadline',
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: DarkThemeColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.access_time,
+                                            size: 16,
+                                            color:
+                                                DarkThemeColors.textSecondary,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _project.deadline,
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                                  color: DarkThemeColors
+                                                      .textPrimary,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 24),
 
                           // Assigned User Section
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Assigned User',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: DarkThemeColors.textSecondary,
+                          AnimatedFadeSlide(
+                            delay: 0.5,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Assigned User',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: DarkThemeColors.textSecondary,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              UserDropdown(
-                                selectedUserId: _selectedProjectUserId,
-                                onUserSelected: _assignProjectUser,
-                                hintText: 'Assign project to user',
-                              ),
-                            ],
+                                const SizedBox(height: 8),
+                                UserDropdown(
+                                  selectedUserId: _selectedProjectUserId,
+                                  onUserSelected: _assignProjectUser,
+                                  hintText: 'Assign project to user',
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 24),
 
                           // Progress Section
-                          _buildProgressSection(),
+                          AnimatedFadeSlide(
+                            delay: 0.6,
+                            child: _buildProgressSection(),
+                          ),
                           const SizedBox(height: 24),
 
                           // Task Tabs
-                          _buildTaskTabs(),
+                          AnimatedFadeSlide(
+                            delay: 0.7,
+                            child: _buildTaskTabs(),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // View Toggle (List/Board selector)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: _buildViewToggle(),
+                          ),
                           const SizedBox(height: 16),
 
                           // Task List
-                          _buildTaskList(),
+                          AnimatedSwitchFadeSlide(
+                            key: ValueKey(_isKanbanView),
+                            child: _buildTaskList(),
+                          ),
                           const SizedBox(height: 100),
                         ],
                       ),
@@ -1207,6 +1513,8 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                   locationName,
                   latitude,
                   longitude,
+                  isRecurring,
+                  recurrencePattern,
                 ) async {
                   final uuid = Uuid();
                   final currentUser = Supabase.instance.client.auth.currentUser;
@@ -1231,6 +1539,8 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                     locationName: locationName,
                     latitude: latitude,
                     longitude: longitude,
+                    isRecurring: isRecurring,
+                    recurrencePattern: recurrencePattern,
                   );
 
                   // Optimistically update UI before API call
@@ -1359,7 +1669,62 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             onPressed: () {
-              // Show menu
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.black,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (ctx) {
+                  return SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          ListTile(
+                            leading: const Icon(
+                              Icons.playlist_add,
+                              color: Colors.white,
+                            ),
+                            title: const Text(
+                              'Add Design Sprint template tasks',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              _addTemplateTasksToProject('design_sprint');
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(
+                              Icons.rocket_launch,
+                              color: Colors.white,
+                            ),
+                            title: const Text(
+                              'Add Product Launch template tasks',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              _addTemplateTasksToProject('product_launch');
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
             },
           ),
         ],
@@ -1368,115 +1733,119 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   }
 
   Widget _buildProjectImage() {
-    return Stack(
-      children: [
-        Container(
-          width: double.infinity,
-          height: 200,
-          decoration: BoxDecoration(color: DarkThemeColors.surface),
-          child: _project.imagePath != null
-              ? (_project.imagePath!.startsWith('http')
-                    ? Image.network(
-                        _project.imagePath!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: _project.cardColor.withOpacity(0.3),
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 64,
-                              color: DarkThemeColors.textSecondary,
-                            ),
-                          );
-                        },
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: _project.cardColor.withOpacity(0.3),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                value:
-                                    loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                    : null,
-                                color: DarkThemeColors.primary100,
+    return AnimatedFadeSlide(
+      delay: 0.0,
+      duration: const Duration(milliseconds: 800),
+      child: Stack(
+        children: [
+          Container(
+            width: double.infinity,
+            height: 200,
+            decoration: const BoxDecoration(color: Colors.black),
+            child: _project.imagePath != null
+                ? (_project.imagePath!.startsWith('http')
+                      ? Image.network(
+                          _project.imagePath!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: _project.cardColor.withOpacity(0.3),
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 64,
+                                color: DarkThemeColors.textSecondary,
                               ),
-                            ),
-                          );
-                        },
-                      )
-                    : Image.asset(
-                        _project.imagePath!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: _project.cardColor.withOpacity(0.3),
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 64,
-                              color: DarkThemeColors.textSecondary,
-                            ),
-                          );
-                        },
-                      ))
-              : Container(
-                  color: _project.cardColor.withOpacity(0.3),
-                  child: Icon(
-                    Icons.image_outlined,
-                    size: 64,
-                    color: DarkThemeColors.textSecondary,
-                  ),
-                ),
-        ),
-        // Priority Badge
-        Positioned(
-          top: 12,
-          left: 12,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _getPriorityColor(_project.priority),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _getPriorityText(_project.priority),
-              style: AppTextStyles.bodySmall.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ),
-        // Edit Icon - Pick Image
-        Positioned(
-          bottom: 12,
-          right: 12,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _pickAndUploadImage,
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: DarkThemeColors.primary100,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                            );
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: _project.cardColor.withOpacity(0.3),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  color: DarkThemeColors.primary100,
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : Image.asset(
+                          _project.imagePath!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: _project.cardColor.withOpacity(0.3),
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 64,
+                                color: DarkThemeColors.textSecondary,
+                              ),
+                            );
+                          },
+                        ))
+                : Container(
+                    color: _project.cardColor.withOpacity(0.3),
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 64,
+                      color: DarkThemeColors.textSecondary,
                     ),
-                  ],
+                  ),
+          ),
+          // Priority Badge
+          Positioned(
+            top: 12,
+            left: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _getPriorityColor(_project.priority),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _getPriorityText(_project.priority),
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
                 ),
-                child: const Icon(Icons.edit, color: Colors.white, size: 16),
               ),
             ),
           ),
-        ),
-      ],
+          // Edit Icon - Pick Image
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _pickAndUploadImage,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: DarkThemeColors.primary100,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.edit, color: Colors.white, size: 16),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1498,7 +1867,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           child: Container(
             height: 8,
             decoration: BoxDecoration(
-              color: DarkThemeColors.surface,
+              color: Colors.black,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Stack(
@@ -1553,40 +1922,46 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   Widget _buildTaskTabs() {
     final tabs = ['All Task', 'Ongoing', 'Completed'];
     return Row(
-      children: tabs.map((tab) {
+      children: tabs.asMap().entries.map((entry) {
+        final index = entry.key;
+        final tab = entry.value;
         final isSelected = _selectedTab == tab;
         return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedTab = tab;
-                _updateFilteredTasks();
-              });
-            },
-            child: Column(
-              children: [
-                Text(
-                  tab,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: isSelected
-                        ? DarkThemeColors.primary100
-                        : DarkThemeColors.textSecondary,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
+          child: AnimatedFadeSlide(
+            delay: index * 0.05,
+            duration: const Duration(milliseconds: 400),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedTab = tab;
+                  _updateFilteredTasks();
+                });
+              },
+              child: Column(
+                children: [
+                  Text(
+                    tab,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: isSelected
+                          ? DarkThemeColors.primary100
+                          : DarkThemeColors.textSecondary,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  height: 2,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? DarkThemeColors.primary100
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(1),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? DarkThemeColors.primary100
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(1),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -1594,7 +1969,74 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     );
   }
 
+  Widget _buildViewToggle() {
+    return AnimatedFadeSlide(
+      delay: 0.15,
+      duration: const Duration(milliseconds: 400),
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isKanbanView = !_isKanbanView;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DarkThemeColors.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isKanbanView ? Icons.view_column : Icons.view_agenda,
+                size: 16,
+                color: DarkThemeColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _isKanbanView ? 'Board' : 'List',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: DarkThemeColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTaskList() {
+    if (_isKanbanView) {
+      // In Kanban view we always work with the full project task list so
+      // dragging between Todo/Done is consistent regardless of filter tab.
+      if (_project.tasks.isEmpty) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              'No tasks found',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: DarkThemeColors.textSecondary,
+              ),
+            ),
+          ),
+        );
+      }
+
+      return KanbanBoardWidget(
+        tasks: _project.tasks,
+        projectCardColor: _project.cardColor,
+        onToggleCompletion: (task) {
+          _toggleTaskCompletion(task);
+        },
+      );
+    }
+
     if (_filteredTasks.isEmpty) {
       return Center(
         child: Padding(
@@ -1610,8 +2052,13 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
 
     return Column(
-      children: _filteredTasks.map((task) {
-        return _buildTaskItem(task);
+      children: _filteredTasks.asMap().entries.map((entry) {
+        final index = entry.key;
+        final task = entry.value;
+        return AnimatedFadeSlide(
+          delay: 0.1 * index,
+          child: _buildTaskItem(task),
+        );
       }).toList(),
     );
   }
@@ -1693,7 +2140,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             },
             child: Container(
               decoration: BoxDecoration(
-                color: DarkThemeColors.surface,
+                color: Colors.black,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: task.isCompleted

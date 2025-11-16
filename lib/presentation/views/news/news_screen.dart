@@ -375,7 +375,7 @@ class _NewsScreenState extends State<NewsScreen>
       child: RefreshIndicator(
         onRefresh: () => _loadNews(refresh: true),
         color: DarkThemeColors.primary100,
-        backgroundColor: DarkThemeColors.surface,
+        backgroundColor: Colors.black,
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
@@ -505,10 +505,18 @@ class _FeaturedNewsCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 180,
+        height: 200,
         decoration: BoxDecoration(
-          color: DarkThemeColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: DarkThemeColors.border.withOpacity(0.8)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -516,13 +524,13 @@ class _FeaturedNewsCard extends StatelessWidget {
             if (article.urlToImage != null && article.urlToImage!.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
+                  topLeft: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
                 ),
                 child: CachedNetworkImage(
                   imageUrl: article.urlToImage!,
                   width: MediaQuery.of(context).size.width * 0.35,
-                  height: 180,
+                  height: 200,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
                     width: MediaQuery.of(context).size.width * 0.35,
@@ -560,37 +568,51 @@ class _FeaturedNewsCard extends StatelessWidget {
                         // Category Badge
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
+                            horizontal: 10,
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: DarkThemeColors.primary100.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
+                            color: DarkThemeColors.primary100.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             'FEATURED',
                             style: TextStyle(
                               color: DarkThemeColors.primary100,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.6,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
 
                         // Title
                         Text(
                           article.title,
-                          style: const TextStyle(
+                          style: AppTextStyles.bodyLarge.copyWith(
                             color: Colors.white,
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             height: 1.3,
                           ),
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (article.description != null &&
+                            article.description!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            article.description!,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: DarkThemeColors.textSecondary,
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
                     ),
 
@@ -598,10 +620,16 @@ class _FeaturedNewsCard extends StatelessWidget {
                     Row(
                       children: [
                         if (article.sourceName != null) ...[
+                          Icon(
+                            Icons.public,
+                            size: 14,
+                            color: DarkThemeColors.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
                           Flexible(
                             child: Text(
                               article.sourceName!,
-                              style: TextStyle(
+                              style: AppTextStyles.bodySmall.copyWith(
                                 color: DarkThemeColors.textSecondary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
@@ -609,21 +637,23 @@ class _FeaturedNewsCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          const SizedBox(width: 6),
+                        ],
+                        if (article.formattedDate.isNotEmpty) ...[
+                          Icon(
+                            Icons.access_time,
+                            size: 12,
+                            color: DarkThemeColors.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
                           Text(
-                            ' • ',
-                            style: TextStyle(
+                            article.formattedDate,
+                            style: AppTextStyles.bodySmall.copyWith(
                               color: DarkThemeColors.textSecondary,
                               fontSize: 11,
                             ),
                           ),
                         ],
-                        Text(
-                          article.formattedDate,
-                          style: TextStyle(
-                            color: DarkThemeColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
                       ],
                     ),
                   ],
@@ -650,8 +680,16 @@ class _CompactNewsCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: DarkThemeColors.surface,
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: DarkThemeColors.border.withOpacity(0.8)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.35),
+              blurRadius: 14,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -660,16 +698,16 @@ class _CompactNewsCard extends StatelessWidget {
             if (article.urlToImage != null && article.urlToImage!.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
                 ),
                 child: CachedNetworkImage(
                   imageUrl: article.urlToImage!,
                   width: double.infinity,
-                  height: 160,
+                  height: 170,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
-                    height: 160,
+                    height: 170,
                     color: DarkThemeColors.border,
                     child: Center(
                       child: CircularProgressIndicator(
@@ -702,20 +740,20 @@ class _CompactNewsCard extends StatelessWidget {
                       if (article.sourceName != null) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
+                            horizontal: 9,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: DarkThemeColors.border,
-                            borderRadius: BorderRadius.circular(4),
+                            color: DarkThemeColors.border.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             article.sourceName!.toUpperCase(),
-                            style: TextStyle(
+                            style: AppTextStyles.bodySmall.copyWith(
                               color: DarkThemeColors.textSecondary,
                               fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.6,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -752,10 +790,10 @@ class _CompactNewsCard extends StatelessWidget {
                   // Title
                   Text(
                     article.title,
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: Colors.white,
                       fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       height: 1.3,
                     ),
                     maxLines: 2,
@@ -768,7 +806,7 @@ class _CompactNewsCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       article.description!,
-                      style: TextStyle(
+                      style: AppTextStyles.bodySmall.copyWith(
                         color: DarkThemeColors.textSecondary,
                         fontSize: 13,
                         height: 1.4,
@@ -782,20 +820,30 @@ class _CompactNewsCard extends StatelessWidget {
 
                   // Read more indicator
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Read more',
-                        style: TextStyle(
-                          color: DarkThemeColors.primary100,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            'Read more',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: DarkThemeColors.primary100,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward,
+                            size: 12,
+                            color: DarkThemeColors.primary100,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward,
-                        size: 12,
-                        color: DarkThemeColors.primary100,
+                      const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 14,
+                        color: DarkThemeColors.textSecondary,
                       ),
                     ],
                   ),
