@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:go_router/go_router.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/core/utils/app_text_styles.dart';
 import 'package:dev_flow/data/models/project_model.dart';
@@ -17,6 +16,10 @@ import 'package:dev_flow/presentation/widgets/project_member_avatars.dart';
 import 'package:dev_flow/presentation/dialogs/manage_members_dialog.dart';
 import 'package:dev_flow/presentation/dialogs/project_attachments_dialog.dart';
 import 'package:dev_flow/presentation/widgets/animated_fade_slide.dart';
+import 'package:dev_flow/presentation/widgets/project_details/project_details_app_bar.dart';
+import 'package:dev_flow/presentation/widgets/project_details/project_image_header.dart';
+import 'package:dev_flow/presentation/widgets/project_details/project_progress_section.dart';
+import 'package:dev_flow/presentation/widgets/project_details/task_tabs_widget.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:dev_flow/data/repositories/offline_task_repository.dart';
@@ -463,28 +466,6 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
       'December',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
-
-  Color _getPriorityColor(ProjectPriority priority) {
-    switch (priority) {
-      case ProjectPriority.high:
-        return Colors.red;
-      case ProjectPriority.medium:
-        return Colors.orange;
-      case ProjectPriority.low:
-        return Colors.green;
-    }
-  }
-
-  String _getPriorityText(ProjectPriority priority) {
-    switch (priority) {
-      case ProjectPriority.high:
-        return 'High';
-      case ProjectPriority.medium:
-        return 'Medium';
-      case ProjectPriority.low:
-        return 'Low';
-    }
   }
 
   Color _getStatusColor(ProjectStatus status) {
@@ -1197,7 +1178,12 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
         child: Column(
           children: [
             // App Bar
-            _buildAppBar(),
+            ProjectDetailsAppBar(
+              onAddDesignSprintTemplate: () =>
+                  _addTemplateTasksToProject('design_sprint'),
+              onAddProductLaunchTemplate: () =>
+                  _addTemplateTasksToProject('product_launch'),
+            ),
 
             // Content
             Expanded(
@@ -1206,7 +1192,10 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Project Image Header
-                    _buildProjectImage(),
+                    ProjectImageHeader(
+                      project: _project,
+                      onEditImage: _pickAndUploadImage,
+                    ),
 
                     // Project Info Section
                     Padding(
@@ -1464,14 +1453,23 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                           // Progress Section
                           AnimatedFadeSlide(
                             delay: 0.6,
-                            child: _buildProgressSection(),
+                            child: ProjectProgressSection(project: _project),
                           ),
                           const SizedBox(height: 24),
 
                           // Task Tabs
                           AnimatedFadeSlide(
                             delay: 0.7,
-                            child: _buildTaskTabs(),
+                            child: TaskTabsWidget(
+                              tabs: const ['All Task', 'Ongoing', 'Completed'],
+                              selectedTab: _selectedTab,
+                              onTabSelected: (tab) {
+                                setState(() {
+                                  _selectedTab = tab;
+                                  _updateFilteredTasks();
+                                });
+                              },
+                            ),
                           ),
                           const SizedBox(height: 16),
 
@@ -1646,329 +1644,6 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     );
   }
 
-  Widget _buildAppBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-            onPressed: () => context.pop(),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                'Project Details',
-                style: AppTextStyles.headlineSmall.copyWith(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: Colors.black,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                ),
-                builder: (ctx) {
-                  return SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 4,
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          ListTile(
-                            leading: const Icon(
-                              Icons.playlist_add,
-                              color: Colors.white,
-                            ),
-                            title: const Text(
-                              'Add Design Sprint template tasks',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            onTap: () {
-                              Navigator.of(ctx).pop();
-                              _addTemplateTasksToProject('design_sprint');
-                            },
-                          ),
-                          ListTile(
-                            leading: const Icon(
-                              Icons.rocket_launch,
-                              color: Colors.white,
-                            ),
-                            title: const Text(
-                              'Add Product Launch template tasks',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            onTap: () {
-                              Navigator.of(ctx).pop();
-                              _addTemplateTasksToProject('product_launch');
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProjectImage() {
-    return AnimatedFadeSlide(
-      delay: 0.0,
-      duration: const Duration(milliseconds: 800),
-      child: Stack(
-        children: [
-          Container(
-            width: double.infinity,
-            height: 200,
-            decoration: const BoxDecoration(color: Colors.black),
-            child: _project.imagePath != null
-                ? (_project.imagePath!.startsWith('http')
-                      ? Image.network(
-                          _project.imagePath!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: _project.cardColor.withOpacity(0.3),
-                              child: Icon(
-                                Icons.image_outlined,
-                                size: 64,
-                                color: DarkThemeColors.textSecondary,
-                              ),
-                            );
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: _project.cardColor.withOpacity(0.3),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  value:
-                                      loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                      : null,
-                                  color: DarkThemeColors.primary100,
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : Image.asset(
-                          _project.imagePath!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: _project.cardColor.withOpacity(0.3),
-                              child: Icon(
-                                Icons.image_outlined,
-                                size: 64,
-                                color: DarkThemeColors.textSecondary,
-                              ),
-                            );
-                          },
-                        ))
-                : Container(
-                    color: _project.cardColor.withOpacity(0.3),
-                    child: Icon(
-                      Icons.image_outlined,
-                      size: 64,
-                      color: DarkThemeColors.textSecondary,
-                    ),
-                  ),
-          ),
-          // Priority Badge
-          Positioned(
-            top: 12,
-            left: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _getPriorityColor(_project.priority),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _getPriorityText(_project.priority),
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          ),
-          // Edit Icon - Pick Image
-          Positioned(
-            bottom: 12,
-            right: 12,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _pickAndUploadImage,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: DarkThemeColors.primary100,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.edit, color: Colors.white, size: 16),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Progress',
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: DarkThemeColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Progress Bar
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            height: 8,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Stack(
-              children: [
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final completedWidth =
-                        constraints.maxWidth * _project.progress;
-                    return Row(
-                      children: [
-                        Container(
-                          width: completedWidth,
-                          decoration: BoxDecoration(
-                            color: _project.cardColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(color: DarkThemeColors.border),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '${_project.completedTasksCount}/${_project.totalTasksCount} Task',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: DarkThemeColors.textSecondary,
-              ),
-            ),
-            Text(
-              '${(_project.progress * 100).toInt()}%',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: DarkThemeColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTaskTabs() {
-    final tabs = ['All Task', 'Ongoing', 'Completed'];
-    return Row(
-      children: tabs.asMap().entries.map((entry) {
-        final index = entry.key;
-        final tab = entry.value;
-        final isSelected = _selectedTab == tab;
-        return Expanded(
-          child: AnimatedFadeSlide(
-            delay: index * 0.05,
-            duration: const Duration(milliseconds: 400),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedTab = tab;
-                  _updateFilteredTasks();
-                });
-              },
-              child: Column(
-                children: [
-                  Text(
-                    tab,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: isSelected
-                          ? DarkThemeColors.primary100
-                          : DarkThemeColors.textSecondary,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 2,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? DarkThemeColors.primary100
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(1),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildViewToggle() {
     return AnimatedFadeSlide(
       delay: 0.15,
@@ -2107,7 +1782,6 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
 
     final dateString = '$monthName ${task.date.day}';
-    final yearString = '${task.date.year}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
