@@ -443,47 +443,64 @@ class _TaskLocationMapScreenState extends State<TaskLocationMapScreen> {
           ),
 
           // Current location button
-          if (_currentLatitude != null && _currentLongitude != null)
-            Positioned(
-              right: 16,
-              bottom: 280,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: DarkThemeColors.primary100.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: FloatingActionButton(
-                  onPressed: () async {
-                    if (_currentLatitude != null && _currentLongitude != null) {
-                      await _mapboxMap?.setCamera(
-                        CameraOptions(
-                          center: Point(
-                            coordinates: Position(
-                              _currentLongitude!,
-                              _currentLatitude!,
+          Positioned(
+            right: 16,
+            bottom: 280,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: DarkThemeColors.primary100.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                onPressed: () async {
+                  // If we don't yet have a current location, try to fetch it.
+                  if (_currentLatitude == null || _currentLongitude == null) {
+                    await _getCurrentLocation();
+
+                    if (_currentLatitude == null || _currentLongitude == null) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Unable to get current location. Please enable GPS and location permissions.',
                             ),
                           ),
-                          zoom: 14.0,
-                        ),
-                      );
+                        );
+                      }
+                      return;
                     }
-                  },
-                  backgroundColor: Colors.white,
-                  elevation: 0,
-                  child: Icon(
-                    Icons.my_location,
-                    color: DarkThemeColors.primary100,
-                    size: 24,
-                  ),
+                  }
+
+                  if (_mapboxMap != null) {
+                    await _mapboxMap!.setCamera(
+                      CameraOptions(
+                        center: Point(
+                          coordinates: Position(
+                            _currentLongitude!,
+                            _currentLatitude!,
+                          ),
+                        ),
+                        zoom: 14.0,
+                      ),
+                    );
+                  }
+                },
+                backgroundColor: Colors.white,
+                elevation: 0,
+                child: Icon(
+                  Icons.my_location,
+                  color: DarkThemeColors.primary100,
+                  size: 24,
                 ),
               ),
             ),
+          ),
         ],
       ),
     );

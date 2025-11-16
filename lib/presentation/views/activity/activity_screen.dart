@@ -3,12 +3,14 @@ import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/core/utils/app_text_styles.dart';
 import 'package:dev_flow/data/models/project_model.dart';
 import 'package:dev_flow/data/models/task_model.dart';
-import 'package:dev_flow/data/repositories/project_repository.dart';
-import 'package:dev_flow/data/repositories/task_repository.dart';
+import 'package:dev_flow/data/repositories/offline_project_repository.dart';
+import 'package:dev_flow/data/repositories/offline_task_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'priority_projects_screen.dart';
 import 'daily_task_list_screen.dart';
+import 'calendar_timeline_screen.dart';
 import 'package:dev_flow/presentation/dialogs/add_quick_todo_dialog.dart';
+import 'package:dev_flow/presentation/widgets/animated_fade_slide.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -19,8 +21,9 @@ class ActivityScreen extends StatefulWidget {
 
 class _ActivityScreenState extends State<ActivityScreen>
     with SingleTickerProviderStateMixin {
-  final ProjectRepository _projectRepository = ProjectRepository();
-  final TaskRepository _taskRepository = TaskRepository();
+  final OfflineProjectRepository _projectRepository =
+      OfflineProjectRepository();
+  final OfflineTaskRepository _taskRepository = OfflineTaskRepository();
   List<Project> _allProjects = [];
   List<Task> _quickTodos = [];
   bool _isLoading = true;
@@ -139,45 +142,73 @@ class _ActivityScreenState extends State<ActivityScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Your Projects & Tasks',
-                style: AppTextStyles.headlineMedium.copyWith(
-                  color: DarkThemeColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 28,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Your Projects & Tasks',
+                      style: AppTextStyles.headlineMedium.copyWith(
+                        color: DarkThemeColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 28,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.calendar_today_rounded,
+                      color: Colors.white,
+                    ),
+                    tooltip: 'Calendar & Timeline',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CalendarTimelineScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               // Tab Bar
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[800]!, width: 1),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    color: DarkThemeColors.primary100,
-                    borderRadius: BorderRadius.circular(6),
+              AnimatedFadeSlide(
+                delay: 0.1,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[800]!, width: 1),
                   ),
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.grey[400],
-                  dividerColor: Colors.transparent,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelStyle: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                  child: TabBar(
+                    controller: _tabController,
+                    indicator: BoxDecoration(
+                      color: DarkThemeColors.primary100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.grey[400],
+                    dividerColor: Colors.transparent,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelStyle: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                    tabs: const [
+                      Tab(text: 'Project'),
+                      Tab(text: 'Daily Task'),
+                    ],
                   ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
-                  tabs: const [
-                    Tab(text: 'Project'),
-                    Tab(text: 'Daily Task'),
-                  ],
                 ),
               ),
               const SizedBox(height: 24),
@@ -202,35 +233,42 @@ class _ActivityScreenState extends State<ActivityScreen>
       );
     }
 
-    return ListView(
-      children: [
-        _buildPriorityCard(
-          context,
-          priority: ProjectPriority.high,
-          title: 'High Priority Project',
-          color: const Color(0xFF1E3A8A), // Dark blue
-          projectCount: _getProjectCountByPriority(ProjectPriority.high),
-          taskCount: _getTaskCountByPriority(ProjectPriority.high),
-        ),
-        const SizedBox(height: 16),
-        _buildPriorityCard(
-          context,
-          priority: ProjectPriority.medium,
-          title: 'Medium Priority Project',
-          color: const Color(0xFF991B1B), // Dark red
-          projectCount: _getProjectCountByPriority(ProjectPriority.medium),
-          taskCount: _getTaskCountByPriority(ProjectPriority.medium),
-        ),
-        const SizedBox(height: 16),
-        _buildPriorityCard(
-          context,
-          priority: ProjectPriority.low,
-          title: 'Low Priority Project',
-          color: const Color(0xFF78350F), // Dark orange/brown
-          projectCount: _getProjectCountByPriority(ProjectPriority.low),
-          taskCount: _getTaskCountByPriority(ProjectPriority.low),
-        ),
-      ],
+    final priorityCards = [
+      _buildPriorityCard(
+        context,
+        priority: ProjectPriority.high,
+        title: 'High Priority Project',
+        color: const Color(0xFF1E3A8A), // Dark blue
+        projectCount: _getProjectCountByPriority(ProjectPriority.high),
+        taskCount: _getTaskCountByPriority(ProjectPriority.high),
+      ),
+      _buildPriorityCard(
+        context,
+        priority: ProjectPriority.medium,
+        title: 'Medium Priority Project',
+        color: const Color(0xFF991B1B), // Dark red
+        projectCount: _getProjectCountByPriority(ProjectPriority.medium),
+        taskCount: _getTaskCountByPriority(ProjectPriority.medium),
+      ),
+      _buildPriorityCard(
+        context,
+        priority: ProjectPriority.low,
+        title: 'Low Priority Project',
+        color: const Color(0xFF78350F), // Dark orange/brown
+        projectCount: _getProjectCountByPriority(ProjectPriority.low),
+        taskCount: _getTaskCountByPriority(ProjectPriority.low),
+      ),
+    ];
+
+    return ListView.separated(
+      itemCount: priorityCards.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        return AnimatedFadeSlide(
+          delay: 0.2 + (index * 0.1),
+          child: priorityCards[index],
+        );
+      },
     );
   }
 
@@ -238,24 +276,32 @@ class _ActivityScreenState extends State<ActivityScreen>
     final completedCount = _quickTodos.where((t) => t.completed).length;
     final incompleteCount = _quickTodos.where((t) => !t.completed).length;
 
-    return ListView(
-      children: [
-        _buildTaskCategoryCard(
-          context,
-          isCompleted: false,
-          title: 'Incomplete Tasks',
-          color: const Color(0xFF991B1B), // Dark red
-          taskCount: incompleteCount,
-        ),
-        const SizedBox(height: 16),
-        _buildTaskCategoryCard(
-          context,
-          isCompleted: true,
-          title: 'Completed Tasks',
-          color: const Color(0xFF065F46), // Dark green
-          taskCount: completedCount,
-        ),
-      ],
+    final taskCards = [
+      _buildTaskCategoryCard(
+        context,
+        isCompleted: false,
+        title: 'Incomplete Tasks',
+        color: const Color(0xFF991B1B), // Dark red
+        taskCount: incompleteCount,
+      ),
+      _buildTaskCategoryCard(
+        context,
+        isCompleted: true,
+        title: 'Completed Tasks',
+        color: const Color(0xFF065F46), // Dark green
+        taskCount: completedCount,
+      ),
+    ];
+
+    return ListView.separated(
+      itemCount: taskCards.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        return AnimatedFadeSlide(
+          delay: 0.2 + (index * 0.1),
+          child: taskCards[index],
+        );
+      },
     );
   }
 
