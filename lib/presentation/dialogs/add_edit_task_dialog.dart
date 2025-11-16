@@ -20,6 +20,8 @@ class AddEditTaskDialog {
       String? locationName,
       double? latitude,
       double? longitude,
+      bool isRecurring,
+      String? recurrencePattern,
     )
     onSubmit,
   }) {
@@ -30,6 +32,8 @@ class AddEditTaskDialog {
     String? locationName = task?.locationName;
     double? latitude = task?.latitude;
     double? longitude = task?.longitude;
+    bool isRecurring = task?.isRecurring ?? false;
+    String? recurrencePattern = task?.recurrencePattern;
     final bool isEditing = task != null;
     final locationService = LocationService();
 
@@ -141,6 +145,86 @@ class AddEditTaskDialog {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+
+                    Text(
+                      'Repeat',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: DarkThemeColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        _buildRecurrenceChip(
+                          context,
+                          'None',
+                          !isRecurring || recurrencePattern == null,
+                          () {
+                            setModalState(() {
+                              isRecurring = false;
+                              recurrencePattern = null;
+                            });
+                          },
+                        ),
+                        _buildRecurrenceChip(
+                          context,
+                          'Daily',
+                          recurrencePattern == 'daily',
+                          () {
+                            setModalState(() {
+                              isRecurring = true;
+                              recurrencePattern = 'daily';
+                            });
+                          },
+                        ),
+                        _buildRecurrenceChip(
+                          context,
+                          'Weekdays',
+                          recurrencePattern == 'weekdays',
+                          () {
+                            setModalState(() {
+                              isRecurring = true;
+                              recurrencePattern = 'weekdays';
+                            });
+                          },
+                        ),
+                        _buildRecurrenceChip(
+                          context,
+                          'Weekly',
+                          recurrencePattern == 'weekly',
+                          () {
+                            setModalState(() {
+                              isRecurring = true;
+                              recurrencePattern = 'weekly';
+                            });
+                          },
+                        ),
+                        _buildRecurrenceChip(
+                          context,
+                          'Monthly',
+                          recurrencePattern == 'monthly',
+                          () {
+                            setModalState(() {
+                              isRecurring = true;
+                              recurrencePattern = 'monthly';
+                            });
+                          },
+                        ),
+                        _buildRecurrenceChip(
+                          context,
+                          'Yearly',
+                          recurrencePattern == 'yearly',
+                          () {
+                            setModalState(() {
+                              isRecurring = true;
+                              recurrencePattern = 'yearly';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
@@ -155,6 +239,8 @@ class AddEditTaskDialog {
                               locationName,
                               latitude,
                               longitude,
+                              isRecurring,
+                              recurrencePattern,
                             );
                             Navigator.pop(context);
                           }
@@ -352,6 +438,14 @@ class AddEditTaskDialog {
                       position.latitude,
                       position.longitude,
                     );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Unable to get current location. Please enable GPS and location permissions.',
+                        ),
+                      ),
+                    );
                   }
                 },
               ),
@@ -366,6 +460,40 @@ class AddEditTaskDialog {
             ],
           ),
       ],
+    );
+  }
+
+  static Widget _buildRecurrenceChip(
+    BuildContext context,
+    String label,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? DarkThemeColors.primary100.withOpacity(0.12)
+              : DarkThemeColors.background,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? DarkThemeColors.primary100
+                : DarkThemeColors.textSecondary.withOpacity(0.2),
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.bodySmall.copyWith(
+            color: isSelected
+                ? DarkThemeColors.primary100
+                : DarkThemeColors.textPrimary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
     );
   }
 

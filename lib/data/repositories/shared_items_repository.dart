@@ -162,6 +162,52 @@ class SharedItemsRepository {
     }
   }
 
+  /// Get all member user IDs for a project (owner, assignee, shared users)
+  Future<List<String>> getMemberUserIdsForProject(String projectId) async {
+    try {
+      // Fetch owner and assigned user from the project
+      final project = await _supabase
+          .from('projects')
+          .select('owner_id, assigned_user_id')
+          .eq('id', projectId)
+          .maybeSingle();
+
+      if (project == null) {
+        return [];
+      }
+
+      final members = <String>{};
+
+      final ownerId = project['owner_id'] as String?;
+      final assignedUserId = project['assigned_user_id'] as String?;
+
+      if (ownerId != null && ownerId.isNotEmpty) {
+        members.add(ownerId);
+      }
+      if (assignedUserId != null && assignedUserId.isNotEmpty) {
+        members.add(assignedUserId);
+      }
+
+      // Fetch additional members from shared_projects
+      final sharedResponse = await _supabase
+          .from('shared_projects')
+          .select('shared_with')
+          .eq('project_id', projectId);
+
+      for (final item in sharedResponse) {
+        final sharedWith = item['shared_with'] as String?;
+        if (sharedWith != null && sharedWith.isNotEmpty) {
+          members.add(sharedWith);
+        }
+      }
+
+      return members.toList();
+    } catch (e) {
+      print('Error fetching project members: $e');
+      return [];
+    }
+  }
+
   /// Helper to get project tasks
   Future<List<Task>> _getProjectTasks(String projectId) async {
     final response = await _supabase
