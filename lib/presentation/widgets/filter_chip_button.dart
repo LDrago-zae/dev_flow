@@ -23,12 +23,16 @@ class FilterChipButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? DarkThemeColors.primary100 : LightThemeColors.primary300)
+              ? (isDark
+                    ? DarkThemeColors.primary100
+                    : LightThemeColors.primary300)
               : DarkThemeColors.background,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? (isDark ? DarkThemeColors.primary100 : LightThemeColors.primary300)
+                ? (isDark
+                      ? DarkThemeColors.primary100
+                      : LightThemeColors.primary300)
                 : (isDark ? DarkThemeColors.border : LightThemeColors.border),
           ),
         ),
@@ -37,7 +41,9 @@ class FilterChipButton extends StatelessWidget {
           style: TextStyle(
             color: isSelected
                 ? Colors.white
-                : (isDark ? DarkThemeColors.textPrimary : LightThemeColors.textPrimary),
+                : (isDark
+                      ? DarkThemeColors.textPrimary
+                      : LightThemeColors.textPrimary),
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -46,4 +52,3 @@ class FilterChipButton extends StatelessWidget {
     );
   }
 }
-
