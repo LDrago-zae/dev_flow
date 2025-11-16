@@ -39,15 +39,21 @@ class _OtpVerificationState extends State<OtpVerification> {
       );
       return;
     } else {
-      Get.snackbar('OTP has been sent', 'OTP has been sent to ${widget.email}',
-          backgroundColor: DarkThemeColors.success,
-          icon: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: FaIcon(FontAwesomeIcons.circleCheck, color: DarkThemeColors.icon),
+      Get.snackbar(
+        'OTP has been sent',
+        'OTP has been sent to ${widget.email}',
+        backgroundColor: DarkThemeColors.success,
+        icon: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: FaIcon(
+            FontAwesomeIcons.circleCheck,
+            color: DarkThemeColors.icon,
           ),
-          colorText: Colors.white);
-          _pinController.clear();
-          _pinFocusNode.unfocus();
+        ),
+        colorText: Colors.white,
+      );
+      _pinController.clear();
+      _pinFocusNode.unfocus();
     }
     // Add your OTP verification logic here
     context.go(AppRoutes.verificationScreen);

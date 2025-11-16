@@ -12,7 +12,8 @@ class GetStarted extends StatefulWidget {
   State<GetStarted> createState() => _GetStartedState();
 }
 
-class _GetStartedState extends State<GetStarted> with SingleTickerProviderStateMixin {
+class _GetStartedState extends State<GetStarted>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<Offset> _imageSlideAnimation;
   late Animation<double> _imageFadeAnimation;
@@ -28,25 +29,27 @@ class _GetStartedState extends State<GetStarted> with SingleTickerProviderStateM
     );
 
     // Image animations
-    _imageSlideAnimation = AppAnimations.fadeInUp(_animationController, offset: 0.3);
+    _imageSlideAnimation = AppAnimations.fadeInUp(
+      _animationController,
+      offset: 0.3,
+    );
     _imageFadeAnimation = AppAnimations.fadeIn(_animationController);
 
     // Content animations (slightly delayed)
-    _contentSlideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
-    ));
+    _contentSlideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
 
-    _contentFadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
-    ));
+    _contentFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
+      ),
+    );
 
     // Start animations
     _animationController.forward();
@@ -75,7 +78,7 @@ class _GetStartedState extends State<GetStarted> with SingleTickerProviderStateM
               ),
             ),
           ),
-          
+
           // Gradient overlay for better text readability
           Container(
             decoration: BoxDecoration(
@@ -89,7 +92,7 @@ class _GetStartedState extends State<GetStarted> with SingleTickerProviderStateM
               ),
             ),
           ),
-          
+
           // Content at the bottom with animation
           Positioned(
             bottom: 0,
