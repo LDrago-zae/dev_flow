@@ -202,7 +202,7 @@ class TaskItemWidget extends StatelessWidget {
                   color: DarkThemeColors.textSecondary,
                 ),
                 filled: true,
-                fillColor: DarkThemeColors.surface,
+                fillColor: Colors.black,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
