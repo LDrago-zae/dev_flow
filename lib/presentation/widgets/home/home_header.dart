@@ -14,30 +14,36 @@ class HomeHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Welcome back, $userName',
-              style: TextStyle(
-                color: isDark
-                    ? DarkThemeColors.textSecondary
-                    : LightThemeColors.textSecondary,
-                fontSize: 14,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Welcome back, $userName',
+                style: TextStyle(
+                  color: isDark
+                      ? DarkThemeColors.textSecondary
+                      : LightThemeColors.textSecondary,
+                  fontSize: 14,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Ready to conquer your day?',
-              style: TextStyle(
-                color: isDark
-                    ? DarkThemeColors.textPrimary
-                    : LightThemeColors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 4),
+              Text(
+                'Ready to conquer your day?',
+                style: TextStyle(
+                  color: isDark
+                      ? DarkThemeColors.textPrimary
+                      : LightThemeColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         // Notification Icon with Badge
         StreamBuilder<int>(
@@ -52,9 +58,7 @@ class HomeHeader extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? DarkThemeColors.surface
-                      : LightThemeColors.surface,
+                  color: isDark ? Colors.black : LightThemeColors.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isDark

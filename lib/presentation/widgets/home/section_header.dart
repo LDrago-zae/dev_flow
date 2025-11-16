@@ -26,8 +26,8 @@ class SectionHeader extends StatelessWidget {
             color: isDark
                 ? DarkThemeColors.textPrimary
                 : LightThemeColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
           ),
         ),
         GestureDetector(
@@ -38,8 +38,8 @@ class SectionHeader extends StatelessWidget {
               color: isDark
                   ? DarkThemeColors.primary100
                   : LightThemeColors.primary300,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),

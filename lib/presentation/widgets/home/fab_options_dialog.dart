@@ -16,7 +16,7 @@ class FabOptionsDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: DarkThemeColors.surface,
+        color: Colors.black,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -87,11 +87,7 @@ class _OptionButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              size: 32,
-              color: DarkThemeColors.primary100,
-            ),
+            Icon(icon, size: 32, color: DarkThemeColors.primary100),
             const SizedBox(height: 8),
             Text(
               label,
