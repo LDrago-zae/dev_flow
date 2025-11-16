@@ -1,7 +1,7 @@
 import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:dev_flow/data/models/project_model.dart';
-import 'package:dev_flow/data/repositories/project_repository.dart';
+import 'package:dev_flow/data/repositories/offline_project_repository.dart';
 import 'package:dev_flow/presentation/views/project_details/project_details_screen.dart';
 import 'package:dev_flow/presentation/widgets/project_card.dart';
 import 'package:dev_flow/presentation/dialogs/add_project_dialog.dart';
@@ -24,7 +24,8 @@ class PriorityProjectsScreen extends StatefulWidget {
 }
 
 class _PriorityProjectsScreenState extends State<PriorityProjectsScreen> {
-  final ProjectRepository _projectRepository = ProjectRepository();
+  final OfflineProjectRepository _projectRepository =
+      OfflineProjectRepository();
   List<Project> _projects = [];
   bool _isLoading = true;
 
@@ -69,7 +70,7 @@ class _PriorityProjectsScreenState extends State<PriorityProjectsScreen> {
 
           AddProjectDialog.show(
             context,
-            onProjectCreated: (project) async {
+            onProjectCreated: (project, templateKey) async {
               try {
                 await _projectRepository.createProject(project);
                 // Reload projects to update the list
@@ -171,6 +172,7 @@ class _PriorityProjectsScreenState extends State<PriorityProjectsScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 16),
                           child: ProjectCard(
+                            projectId: project.id,
                             title: project.title,
                             description: project.description,
                             deadline: project.deadline,
@@ -198,6 +200,8 @@ class _PriorityProjectsScreenState extends State<PriorityProjectsScreen> {
                                 ),
                               );
                             },
+                            onMorePressed: () =>
+                                _showProjectActionsSheet(project),
                           ),
                         );
                       },
@@ -207,5 +211,104 @@ class _PriorityProjectsScreenState extends State<PriorityProjectsScreen> {
         ),
       ),
     );
+  }
+
+  void _showProjectActionsSheet(Project project) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.white),
+                  title: const Text(
+                    'Edit project',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProjectDetailsScreen(
+                          project: project,
+                          onUpdate: (updatedProject) {
+                            setState(() {
+                              final index = _projects.indexWhere(
+                                (p) => p.id == updatedProject.id,
+                              );
+                              if (index != -1) {
+                                _projects[index] = updatedProject;
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
+                  title: const Text(
+                    'Delete project',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _deleteProject(project);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteProject(Project project) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    setState(() {
+      _projects.removeWhere((p) => p.id == project.id);
+    });
+
+    try {
+      await _projectRepository.deleteProject(project.id);
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Project deleted successfully'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        await _loadProjects();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('Failed to delete project: $e')),
+        );
+      }
+    }
   }
 }

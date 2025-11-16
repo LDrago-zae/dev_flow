@@ -5,6 +5,7 @@ import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/presentation/widgets/task_item.dart';
 import 'package:dev_flow/presentation/dialogs/add_quick_todo_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart'; // This line was already present
 import 'daily_task_detail_screen.dart';
 
 class DailyTaskListScreen extends StatefulWidget {
@@ -62,9 +63,68 @@ class _DailyTaskListScreenState extends State<DailyTaskListScreen> {
     }
   }
 
+  Future<void> _createNextRecurringQuickTodo(Task baseTask) async {
+    final pattern = baseTask.recurrencePattern;
+    if (pattern == null || pattern.isEmpty) return;
+
+    DateTime nextDate;
+    switch (pattern) {
+      case 'daily':
+        nextDate = baseTask.date.add(const Duration(days: 1));
+        break;
+      case 'weekdays':
+        nextDate = baseTask.date.add(const Duration(days: 1));
+        while (nextDate.weekday == DateTime.saturday ||
+            nextDate.weekday == DateTime.sunday) {
+          nextDate = nextDate.add(const Duration(days: 1));
+        }
+        break;
+      case 'weekly':
+        nextDate = baseTask.date.add(const Duration(days: 7));
+        break;
+      case 'monthly':
+        nextDate = DateTime(
+          baseTask.date.year,
+          baseTask.date.month + 1,
+          baseTask.date.day,
+        );
+        break;
+      case 'yearly':
+        nextDate = DateTime(
+          baseTask.date.year + 1,
+          baseTask.date.month,
+          baseTask.date.day,
+        );
+        break;
+      default:
+        return;
+    }
+
+    final nextTask = baseTask.copyWith(
+      id: const Uuid().v4(),
+      date: nextDate,
+      isCompleted: false,
+      completed: false,
+      completedAt: null,
+      clearCompletedAt: true,
+    );
+
+    try {
+      await _taskRepository.createTask(nextTask);
+      await _loadTasks();
+    } catch (_) {
+      // Ignore errors for now
+    }
+  }
+
   Future<void> _toggleTaskCompletion(Task task) async {
     // Optimistically update UI
-    final updatedTask = task.copyWith(completed: !task.completed);
+    final wasCompleted = task.completed;
+    final isNowCompleted = !task.completed;
+    final updatedTask = task.copyWith(
+      completed: isNowCompleted,
+      isCompleted: isNowCompleted,
+    );
     final index = _tasks.indexWhere((t) => t.id == task.id);
     if (index != -1) {
       setState(() {
@@ -74,6 +134,11 @@ class _DailyTaskListScreenState extends State<DailyTaskListScreen> {
 
     try {
       await _taskRepository.updateTask(updatedTask);
+
+      // If this is a recurring task and we just completed it, create the next occurrence
+      if (!wasCompleted && isNowCompleted && updatedTask.isRecurring) {
+        await _createNextRecurringQuickTodo(updatedTask);
+      }
     } catch (e) {
       // Revert on error
       if (index != -1) {
