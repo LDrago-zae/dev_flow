@@ -40,7 +40,7 @@ class OnboardingButtons extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Skip Button
         OutlinedButton(
           onPressed: onSkip,

@@ -61,15 +61,18 @@ class OnboardingBottomSheet extends StatelessWidget {
                     children: const [
                       OnboardingPageContent(
                         title: 'Effortless Task Management',
-                        description: 'Organize your tasks efficiently with our intuitive interface designed for developers.',
+                        description:
+                            'Organize your tasks efficiently with our intuitive interface designed for developers.',
                       ),
                       OnboardingPageContent(
                         title: 'Boost Your Productivity',
-                        description: 'Track your progress and stay focused with powerful tools built for your workflow.',
+                        description:
+                            'Track your progress and stay focused with powerful tools built for your workflow.',
                       ),
                       OnboardingPageContent(
                         title: 'Collaborate Seamlessly',
-                        description: 'Work together with your team and share updates in real-time.',
+                        description:
+                            'Work together with your team and share updates in real-time.',
                       ),
                     ],
                   ),

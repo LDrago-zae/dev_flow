@@ -23,9 +23,7 @@ class OnboardingBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: Container(
-        decoration: BoxDecoration(
-          color: LightThemeColors.primary600,
-        ),
+        decoration: BoxDecoration(color: LightThemeColors.primary600),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
