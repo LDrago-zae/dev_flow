@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../routes/app_routes.dart';
 
-class OnboardingViewModel extends GetxController with GetTickerProviderStateMixin {
+class OnboardingViewModel extends GetxController
+    with GetTickerProviderStateMixin {
   final PageController pageController = PageController();
   final RxInt currentPage = 0.obs;
   final int totalPages = 3;
@@ -27,13 +28,10 @@ class OnboardingViewModel extends GetxController with GetTickerProviderStateMixi
       duration: const Duration(milliseconds: 2000),
     );
 
-    imageSlideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: animationController,
-      curve: Curves.easeOut,
-    ));
+    imageSlideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(parent: animationController, curve: Curves.easeOut),
+        );
 
     imageFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: animationController, curve: Curves.easeIn),
@@ -44,13 +42,13 @@ class OnboardingViewModel extends GetxController with GetTickerProviderStateMixi
       duration: const Duration(milliseconds: 600),
     );
 
-    pageImageSlideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: pageTransitionController,
-      curve: Curves.easeOut,
-    ));
+    pageImageSlideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: pageTransitionController,
+            curve: Curves.easeOut,
+          ),
+        );
 
     pageImageFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: pageTransitionController, curve: Curves.easeIn),

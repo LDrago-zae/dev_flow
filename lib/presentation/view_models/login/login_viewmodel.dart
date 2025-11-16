@@ -16,5 +16,4 @@ class LoginViewModel extends GetxController {
   void login() {
     // TODO: implement login
   }
-
 }
