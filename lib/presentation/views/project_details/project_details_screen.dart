@@ -30,6 +30,7 @@ import 'package:dev_flow/data/repositories/project_members_repository.dart';
 import 'package:dev_flow/services/realtime_service.dart';
 import 'package:dev_flow/services/fcm_service.dart';
 import 'package:dev_flow/services/notification_service.dart';
+import 'package:dev_flow/services/time_tracker_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:async';
 import 'dart:io';
@@ -79,6 +80,10 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   String? _addingSubtaskFor; // Track which task is having a subtask added
   String? _expandedTaskId; // Track which task is expanded to show details
 
+  // Time tracking
+  final _timeTracker = TimeTrackerService();
+  String _timerDuration = '';
+
   bool _isLoading = false;
   String? _error;
 
@@ -90,6 +95,17 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     _updateFilteredTasks();
     _setupRealtimeSubscriptions();
     _loadProjectData();
+
+    // Listen to timer updates
+    _timeTracker.timerStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _timerDuration = _timeTracker.formatDuration(
+            _timeTracker.elapsedSeconds,
+          );
+        });
+      }
+    });
   }
 
   void _setupRealtimeSubscriptions() {
@@ -1974,6 +1990,79 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                                 ],
                               ),
                             ),
+
+                            // Timer button (for incomplete tasks)
+                            if (!task.isCompleted) ...[
+                              GestureDetector(
+                                onTap: () async {
+                                  final isThisTaskActive =
+                                      _timeTracker.activeEntry?.taskId ==
+                                      task.id;
+                                  if (isThisTaskActive) {
+                                    await _timeTracker.stopTracking();
+                                  } else {
+                                    await _timeTracker.startTracking(
+                                      taskId: task.id,
+                                      projectId: _project.id,
+                                    );
+                                  }
+                                  setState(() {});
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        _timeTracker.activeEntry?.taskId ==
+                                            task.id
+                                        ? _project.cardColor.withOpacity(0.15)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color:
+                                          _timeTracker.activeEntry?.taskId ==
+                                              task.id
+                                          ? _project.cardColor
+                                          : DarkThemeColors.border,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _timeTracker.activeEntry?.taskId ==
+                                                task.id
+                                            ? Icons.stop_circle_outlined
+                                            : Icons.play_circle_outline,
+                                        size: 18,
+                                        color:
+                                            _timeTracker.activeEntry?.taskId ==
+                                                task.id
+                                            ? _project.cardColor
+                                            : DarkThemeColors.textSecondary,
+                                      ),
+                                      if (_timeTracker.activeEntry?.taskId ==
+                                              task.id &&
+                                          _timerDuration.isNotEmpty) ...[
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _timerDuration,
+                                          style: TextStyle(
+                                            color: _project.cardColor,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
 
                             // Expand/Edit button
                             IconButton(

@@ -21,7 +21,7 @@ class ProjectRepository {
 
     return await Future.wait(
       response.map((json) async {
-        final tasks = await getProjectTasks(json['id']);
+        final tasks = await getProjectTasks(json['id'], ownerId: userId);
         return Project.fromJson(json, tasks: tasks);
       }),
     );
@@ -42,11 +42,15 @@ class ProjectRepository {
     return Project.fromJson(response, tasks: tasks);
   }
 
-  Future<List<Task>> getProjectTasks(String projectId) async {
-    final response = await _supabase
-        .from('tasks')
-        .select('*')
-        .eq('project_id', projectId);
+  Future<List<Task>> getProjectTasks(
+    String projectId, {
+    String? ownerId,
+  }) async {
+    var query = _supabase.from('tasks').select('*').eq('project_id', projectId);
+    if (ownerId != null) {
+      query = query.eq('owner_id', ownerId);
+    }
+    final response = await query;
     return response.map((json) => Task.fromJson(json)).toList();
   }
 
