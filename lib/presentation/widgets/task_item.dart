@@ -10,6 +10,9 @@ class TaskItem extends StatelessWidget {
   final VoidCallback? onCheckboxTap;
   final bool isCompleted;
   final Color? checkboxColor;
+  final VoidCallback? onTimerTap;
+  final bool isTimerActive;
+  final String? timerDuration;
 
   const TaskItem({
     super.key,
@@ -21,6 +24,9 @@ class TaskItem extends StatelessWidget {
     this.onCheckboxTap,
     this.isCompleted = false,
     this.checkboxColor,
+    this.onTimerTap,
+    this.isTimerActive = false,
+    this.timerDuration,
   });
 
   @override
@@ -118,14 +124,68 @@ class TaskItem extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              time,
-              style: TextStyle(
-                color: isDark
-                    ? DarkThemeColors.textSecondary
-                    : LightThemeColors.textSecondary,
-                fontSize: 12,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  time,
+                  style: TextStyle(
+                    color: isDark
+                        ? DarkThemeColors.textSecondary
+                        : LightThemeColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                if (onTimerTap != null && !isCompleted) ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: onTimerTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isTimerActive
+                            ? DarkThemeColors.primary100.withOpacity(0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isTimerActive
+                              ? DarkThemeColors.primary100
+                              : DarkThemeColors.border,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isTimerActive
+                                ? Icons.stop_circle_outlined
+                                : Icons.play_circle_outline,
+                            size: 16,
+                            color: isTimerActive
+                                ? DarkThemeColors.primary100
+                                : DarkThemeColors.textSecondary,
+                          ),
+                          if (timerDuration != null && isTimerActive) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              timerDuration!,
+                              style: TextStyle(
+                                color: DarkThemeColors.primary100,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
