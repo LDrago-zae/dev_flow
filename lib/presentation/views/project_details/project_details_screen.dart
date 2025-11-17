@@ -1915,74 +1915,87 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                                   Row(
                                     children: [
                                       // Date badge
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _project.cardColor.withOpacity(
-                                            0.15,
+                                      Flexible(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
                                           ),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
+                                          decoration: BoxDecoration(
+                                            color: _project.cardColor
+                                                .withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.calendar_today_rounded,
-                                              size: 12,
-                                              color: _project.cardColor,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              dateString,
-                                              style: AppTextStyles.bodySmall
-                                                  .copyWith(
-                                                    color: _project.cardColor,
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 12,
-                                                  ),
-                                            ),
-                                          ],
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.calendar_today_rounded,
+                                                size: 12,
+                                                color: _project.cardColor,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Flexible(
+                                                child: Text(
+                                                  dateString,
+                                                  style: AppTextStyles.bodySmall
+                                                      .copyWith(
+                                                        color:
+                                                            _project.cardColor,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 12,
+                                                      ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
 
                                       // Time badge
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: DarkThemeColors.background,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
+                                      Flexible(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
                                           ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.access_time_rounded,
-                                              size: 12,
-                                              color:
-                                                  DarkThemeColors.textSecondary,
+                                          decoration: BoxDecoration(
+                                            color: DarkThemeColors.background,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              task.time,
-                                              style: AppTextStyles.bodySmall
-                                                  .copyWith(
-                                                    color: DarkThemeColors
-                                                        .textSecondary,
-                                                    fontSize: 12,
-                                                  ),
-                                            ),
-                                          ],
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.access_time_rounded,
+                                                size: 12,
+                                                color: DarkThemeColors
+                                                    .textSecondary,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Flexible(
+                                                child: Text(
+                                                  task.time,
+                                                  style: AppTextStyles.bodySmall
+                                                      .copyWith(
+                                                        color: DarkThemeColors
+                                                            .textSecondary,
+                                                        fontSize: 12,
+                                                      ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ],

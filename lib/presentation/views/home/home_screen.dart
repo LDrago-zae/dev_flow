@@ -895,25 +895,22 @@ class _HomeScreenState extends State<HomeScreen>
       },
     ];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: columns.map((column) {
-          final filter = column['filter'] as bool Function(Project);
-          final columnProjects = _filteredProjects
-              .where((project) => filter(project))
-              .toList();
-          return Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: _buildProjectKanbanColumn(
-              title: column['title'] as String,
-              accentColor: column['color'] as Color,
-              projects: columnProjects,
-              columnWidth: columnWidth,
-            ),
-          );
-        }).toList(),
-      ),
+    return Column(
+      children: columns.map((column) {
+        final filter = column['filter'] as bool Function(Project);
+        final columnProjects = _filteredProjects
+            .where((project) => filter(project))
+            .toList();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _buildProjectKanbanColumn(
+            title: column['title'] as String,
+            accentColor: column['color'] as Color,
+            projects: columnProjects,
+            columnWidth: columnWidth,
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -924,7 +921,7 @@ class _HomeScreenState extends State<HomeScreen>
     required double columnWidth,
   }) {
     return Container(
-      width: columnWidth,
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.black,

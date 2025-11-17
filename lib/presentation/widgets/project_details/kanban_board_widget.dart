@@ -20,17 +20,22 @@ class KanbanBoardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final todoTasks = tasks.where((t) => !t.isCompleted).toList();
-    final doneTasks = tasks.where((t) => t.isCompleted).toList();
+    final allTasks = tasks;
+    final completedTasks = tasks.where((t) => t.isCompleted).toList();
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final content = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildColumn(context, 'Todo', todoTasks, isDoneColumn: false),
+            _buildColumn(context, 'All Tasks', allTasks, isDoneColumn: false),
             const SizedBox(height: 16),
-            _buildColumn(context, 'Done', doneTasks, isDoneColumn: true),
+            _buildColumn(
+              context,
+              'Completed Tasks',
+              completedTasks,
+              isDoneColumn: true,
+            ),
           ],
         );
 
@@ -118,9 +123,13 @@ class KanbanBoardWidget extends StatelessWidget {
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: columnTasks.map((task) {
+                  children: columnTasks.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final task = entry.value;
                     return Padding(
-                      padding: const EdgeInsets.only(right: 12),
+                      padding: EdgeInsets.only(
+                        right: index < columnTasks.length - 1 ? 12 : 0,
+                      ),
                       child: SizedBox(
                         width: 260,
                         child: _buildDraggableTaskCard(context, task),

@@ -61,12 +61,33 @@ class _TaskLocationMapScreenState extends State<TaskLocationMapScreen> {
   Future<void> _setupMap() async {
     if (_mapboxMap == null) return;
 
+    // Enable location puck with pulsing animation
+    await _enableLocationPuck();
+
     // Add marker for task location
     await _addTaskMarker();
+  }
 
-    // Add current location marker if available
-    if (_currentLatitude != null && _currentLongitude != null) {
-      await _addCurrentLocationMarker();
+  Future<void> _enableLocationPuck() async {
+    if (_mapboxMap == null) return;
+
+    try {
+      // Enable location component
+      final locationComponentSettings = _mapboxMap!.location;
+
+      await locationComponentSettings.updateSettings(
+        LocationComponentSettings(
+          enabled: true,
+          pulsingEnabled: true,
+          pulsingColor: Colors.blue.value,
+          pulsingMaxRadius: 30.0,
+          showAccuracyRing: true,
+          accuracyRingColor: Colors.blue.withOpacity(0.2).value,
+          accuracyRingBorderColor: Colors.blue.withOpacity(0.4).value,
+        ),
+      );
+    } catch (e) {
+      print('Error enabling location puck: $e');
     }
   }
 
@@ -88,32 +109,6 @@ class _TaskLocationMapScreenState extends State<TaskLocationMapScreen> {
       await pointAnnotationManager.create(options);
     } catch (e) {
       print('Error adding task marker: $e');
-    }
-  }
-
-  Future<void> _addCurrentLocationMarker() async {
-    if (_mapboxMap == null ||
-        _currentLatitude == null ||
-        _currentLongitude == null)
-      return;
-
-    try {
-      final circleAnnotationManager = await _mapboxMap!.annotations
-          .createCircleAnnotationManager();
-
-      final options = CircleAnnotationOptions(
-        geometry: Point(
-          coordinates: Position(_currentLongitude!, _currentLatitude!),
-        ),
-        circleRadius: 8.0,
-        circleColor: Colors.blue.value,
-        circleStrokeWidth: 2.0,
-        circleStrokeColor: Colors.white.value,
-      );
-
-      await circleAnnotationManager.create(options);
-    } catch (e) {
-      print('Error adding current location marker: $e');
     }
   }
 
