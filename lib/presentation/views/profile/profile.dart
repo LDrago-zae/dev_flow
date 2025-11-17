@@ -40,6 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isGoogleUser = false;
   bool _isLoading = true;
   bool _isEditMode = false;
+  bool _isSigningOut = false;
   String? _avatarUrl;
 
   @override
@@ -597,68 +598,194 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            onPressed: () async {
-                              // Show confirmation dialog
-                              final shouldLogout = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  backgroundColor: DarkThemeColors.surface,
-                                  title: Text(
-                                    'Logout',
-                                    style: AppTextStyles.headlineSmall.copyWith(
-                                      color: DarkThemeColors.textPrimary,
-                                    ),
-                                  ),
-                                  content: Text(
-                                    'Are you sure you want to logout?',
-                                    style: AppTextStyles.bodyMedium.copyWith(
-                                      color: DarkThemeColors.textSecondary,
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, false),
-                                      child: Text(
-                                        'Cancel',
-                                        style: AppTextStyles.bodyMedium
-                                            .copyWith(
-                                              color:
-                                                  DarkThemeColors.textSecondary,
+                            onPressed: _isSigningOut
+                                ? null
+                                : () async {
+                                    // Show confirmation dialog
+                                    final shouldLogout = await showDialog<bool>(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (dialogContext) {
+                                        return Dialog(
+                                          backgroundColor: const Color(
+                                            0xFF050505,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              20,
                                             ),
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(24),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  height: 64,
+                                                  width: 64,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red
+                                                        .withOpacity(0.08),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          16,
+                                                        ),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.logout_rounded,
+                                                    color: Colors.red,
+                                                    size: 28,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 20),
+                                                Text(
+                                                  'Sign out of Dev Flow?',
+                                                  textAlign: TextAlign.center,
+                                                  style: AppTextStyles
+                                                      .headlineSmall
+                                                      .copyWith(
+                                                        color: Colors.white,
+                                                        fontSize: 20,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Text(
+                                                  'You’ll need to sign in again to access your boards, projects, and reports.',
+                                                  textAlign: TextAlign.center,
+                                                  style: AppTextStyles
+                                                      .bodyMedium
+                                                      .copyWith(
+                                                        color: DarkThemeColors
+                                                            .textSecondary,
+                                                        height: 1.4,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 24),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: OutlinedButton(
+                                                        style: OutlinedButton.styleFrom(
+                                                          side: BorderSide(
+                                                            color:
+                                                                DarkThemeColors
+                                                                    .border,
+                                                          ),
+                                                          foregroundColor:
+                                                              DarkThemeColors
+                                                                  .textPrimary,
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                vertical: 14,
+                                                              ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              dialogContext,
+                                                              false,
+                                                            ),
+                                                        child: const Text(
+                                                          'Cancel',
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: ElevatedButton(
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              Colors.red,
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                vertical: 14,
+                                                              ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              dialogContext,
+                                                              true,
+                                                            ),
+                                                        child: const Text(
+                                                          'Logout',
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+
+                                    if (shouldLogout == true) {
+                                      setState(() => _isSigningOut = true);
+
+                                      try {
+                                        await Supabase.instance.client.auth
+                                            .signOut();
+
+                                        if (!mounted) return;
+                                        context.go(AppRoutes.login);
+                                      } catch (e) {
+                                        if (!mounted) return;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Failed to logout: $e',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                        setState(() => _isSigningOut = false);
+                                      }
+                                    }
+                                  },
+                            child: _isSigningOut
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.red,
                                       ),
                                     ),
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, true),
-                                      child: Text(
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.logout, size: 20),
+                                      const SizedBox(width: 8),
+                                      Text(
                                         'Logout',
                                         style: AppTextStyles.bodyMedium
-                                            .copyWith(color: Colors.red),
+                                            .copyWith(
+                                              color: Colors.red,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              );
-
-                              if (shouldLogout == true) {
-                                await Supabase.instance.client.auth.signOut();
-                              }
-                            },
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.logout, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Logout',
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.w600,
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                       ],

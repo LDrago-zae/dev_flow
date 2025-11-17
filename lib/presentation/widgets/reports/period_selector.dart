@@ -17,38 +17,99 @@ class PeriodSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D0D0D),
+        color: const Color(0xFF050505),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2A2A2A), width: 1),
+        border: Border.all(color: const Color(0xFF1A1A1A), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: DropdownButton<String>(
-        value: selectedPeriod,
-        onChanged: (value) {
-          if (value != null) {
-            onPeriodChanged(value);
-          }
-        },
-        items: periods.map((String period) {
-          return DropdownMenuItem<String>(
-            value: period,
-            child: Text(
-              period,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: DarkThemeColors.textPrimary,
-              ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedPeriod,
+          isDense: true,
+          borderRadius: BorderRadius.circular(12),
+          dropdownColor: const Color(0xFF0B0B0B),
+          icon: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF101010),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF1F1F1F), width: 1),
             ),
-          );
-        }).toList(),
-        dropdownColor: DarkThemeColors.surface,
-        icon: Icon(
-          Icons.keyboard_arrow_down,
-          color: DarkThemeColors.textSecondary,
-        ),
-        underline: const SizedBox(),
-        style: AppTextStyles.bodyMedium.copyWith(
-          color: DarkThemeColors.textPrimary,
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: DarkThemeColors.textPrimary,
+              size: 18,
+            ),
+          ),
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+          selectedItemBuilder: (context) {
+            return periods.map((period) {
+              return Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: DarkThemeColors.primary100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    period,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              );
+            }).toList();
+          },
+          items: periods.map((String period) {
+            return DropdownMenuItem<String>(
+              value: period,
+              child: Row(
+                children: [
+                  Icon(
+                    period == selectedPeriod
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 16,
+                    color: period == selectedPeriod
+                        ? DarkThemeColors.primary100
+                        : DarkThemeColors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    period,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: Colors.white,
+                      fontWeight: period == selectedPeriod
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              onPeriodChanged(value);
+            }
+          },
         ),
       ),
     );

@@ -108,40 +108,55 @@ class ProjectCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_today,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      deadline,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    // Member avatars
-                    ProjectMemberAvatars(
-                      projectId: projectId,
-                      maxVisible: 3,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${(progress * 100).toInt()}%',
-                      style: const TextStyle(
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today,
                         color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        size: 14,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          deadline,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ProjectMemberAvatars(
+                        projectId: projectId,
+                        maxVisible: 3,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          '${(progress * 100).toInt()}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
