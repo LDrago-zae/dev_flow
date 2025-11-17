@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'priority_projects_screen.dart';
 import 'daily_task_list_screen.dart';
 import 'calendar_timeline_screen.dart';
+import 'time_tracking_screen.dart';
 import 'package:dev_flow/presentation/dialogs/add_quick_todo_dialog.dart';
 import 'package:dev_flow/presentation/widgets/animated_fade_slide.dart';
 
@@ -17,6 +18,33 @@ class ActivityScreen extends StatefulWidget {
 
   @override
   State<ActivityScreen> createState() => _ActivityScreenState();
+}
+
+class _ActivityTabBarDelegate extends SliverPersistentHeaderDelegate {
+  _ActivityTabBarDelegate({required this.child});
+
+  final Widget child;
+  static const double _height = 64;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  bool shouldRebuild(covariant _ActivityTabBarDelegate oldDelegate) {
+    return oldDelegate.child != child;
+  }
 }
 
 class _ActivityScreenState extends State<ActivityScreen>
@@ -32,7 +60,7 @@ class _ActivityScreenState extends State<ActivityScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       setState(() {}); // Refresh to show/hide FAB
     });
@@ -137,89 +165,105 @@ class _ActivityScreenState extends State<ActivityScreen>
             )
           : null,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Your Projects & Tasks',
-                      style: AppTextStyles.headlineMedium.copyWith(
-                        color: DarkThemeColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 28,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.calendar_today_rounded,
-                      color: Colors.white,
-                    ),
-                    tooltip: 'Calendar & Timeline',
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CalendarTimelineScreen(),
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Your Projects & Tasks',
+                        style: AppTextStyles.headlineMedium.copyWith(
+                          color: DarkThemeColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
                         ),
-                      );
-                    },
-                  ),
-                ],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.calendar_today_rounded,
+                        color: Colors.white,
+                      ),
+                      tooltip: 'Calendar & Timeline',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const CalendarTimelineScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
-              // Tab Bar
-              AnimatedFadeSlide(
-                delay: 0.1,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[800]!, width: 1),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      color: DarkThemeColors.primary100,
-                      borderRadius: BorderRadius.circular(6),
+            ),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _ActivityTabBarDelegate(
+                child: AnimatedFadeSlide(
+                  delay: 0.1,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
                     ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.grey[400],
-                    dividerColor: Colors.transparent,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[800]!, width: 1),
                     ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
+                    child: TabBar(
+                      controller: _tabController,
+                      indicator: BoxDecoration(
+                        color: DarkThemeColors.primary100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.grey[400],
+                      dividerColor: Colors.transparent,
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelStyle: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                      tabs: const [
+                        Tab(text: 'Project'),
+                        Tab(text: 'Daily Task'),
+                        Tab(text: 'Time Tracking'),
+                      ],
                     ),
-                    tabs: const [
-                      Tab(text: 'Project'),
-                      Tab(text: 'Daily Task'),
-                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              // Tab Views
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [_buildProjectsTab(), _buildDailyTasksTab()],
-                ),
-              ),
-            ],
+            ),
+          ],
+          body: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildProjectsTab(),
+                _buildDailyTasksTab(),
+                const TimeTrackingScreen(),
+              ],
+            ),
           ),
         ),
       ),

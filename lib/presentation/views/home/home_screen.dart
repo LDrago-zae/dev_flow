@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dev_flow/core/constants/app_colors.dart';
+import 'package:dev_flow/core/utils/app_text_styles.dart';
 import 'package:dev_flow/data/models/project_model.dart';
 import 'package:dev_flow/data/models/task_model.dart';
 import 'package:dev_flow/presentation/widgets/custom_search_bar.dart';
@@ -53,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen>
   List<Project> _filteredProjects = [];
   List<Task> _filteredQuickTodos = [];
   bool _isQuickTodosKanbanView = false;
+  bool _isProjectKanbanView = false;
   bool _isLoading = true;
   String? _error;
   String _userName = 'User';
@@ -65,6 +67,74 @@ class _HomeScreenState extends State<HomeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeData();
+  }
+
+  Widget _buildProjectViewToggle() {
+    return AnimatedFadeSlide(
+      delay: 0.1,
+      duration: const Duration(milliseconds: 400),
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isProjectKanbanView = !_isProjectKanbanView;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DarkThemeColors.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isProjectKanbanView ? Icons.view_column : Icons.view_agenda,
+                size: 16,
+                color: DarkThemeColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _isProjectKanbanView ? 'Board' : 'List',
+                style: const TextStyle(
+                  color: DarkThemeColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openProjectDetails(Project project, {int? initialIndex}) async {
+    if (_isLoading) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProjectDetailsScreen(
+          project: project,
+          onUpdate: (updated) {
+            setState(() {
+              final targetIndex =
+                  initialIndex ??
+                  _projects.indexWhere((p) => p.id == updated.id);
+              if (targetIndex != -1) {
+                _projects[targetIndex] = updated;
+              }
+            });
+            _filterData();
+          },
+        ),
+      ),
+    );
+
+    await _loadData();
   }
 
   @override
@@ -388,20 +458,29 @@ class _HomeScreenState extends State<HomeScreen>
                         const SizedBox(height: 24),
 
                         // Your Project Section
-                        SectionHeader(
-                          title: 'Your Project',
-                          actionText: 'See All',
-                          isDark: isDark,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SectionHeader(
+                                title: 'Your Project',
+                                isDark: isDark,
+                                showAction: false,
+                              ),
+                            ),
+                            _buildProjectViewToggle(),
+                          ],
                         ),
                         const SizedBox(height: 16),
-                        _buildProjectsList(constraints),
+                        _isProjectKanbanView
+                            ? _buildProjectsKanban(constraints)
+                            : _buildProjectsList(constraints),
                         const SizedBox(height: 24),
 
                         // Quick Todos Section
                         SectionHeader(
                           title: 'Quick Todos',
-                          actionText: 'See All',
                           isDark: isDark,
+                          showAction: false,
                         ),
                         const SizedBox(height: 16),
 
@@ -755,26 +834,7 @@ class _HomeScreenState extends State<HomeScreen>
               category: project.category,
               priority: project.priority,
               projectId: project.id,
-              onTap: _isLoading
-                  ? () {}
-                  : () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProjectDetailsScreen(
-                            project: project,
-                            onUpdate: (updated) {
-                              setState(() {
-                                _projects[index] = updated;
-                              });
-                              _filterData();
-                            },
-                          ),
-                        ),
-                      );
-                      // Refresh data after returning from project details
-                      await _loadData();
-                    },
+              onTap: () => _openProjectDetails(project, initialIndex: index),
               onMorePressed: _isLoading
                   ? null
                   : () => _showProjectActionsSheet(project, index),
@@ -782,6 +842,195 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildProjectsKanban(BoxConstraints constraints) {
+    if (_filteredProjects.isEmpty && !_isLoading) {
+      return Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.folder_open,
+              size: 64,
+              color: DarkThemeColors.textSecondary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isEmpty ? 'No projects yet' : 'No projects found',
+              style: TextStyle(
+                color: DarkThemeColors.textSecondary,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final availableWidth = constraints.maxWidth;
+    final columnWidth = availableWidth >= 1024
+        ? (availableWidth - 64) / 3
+        : (availableWidth - 32).clamp(300.0, 380.0);
+
+    final columns = [
+      {
+        'title': 'All Projects',
+        'filter': (Project project) => true,
+        'color': Colors.purpleAccent,
+      },
+      {
+        'title': 'Completed',
+        'filter': (Project project) =>
+            project.status == ProjectStatus.completed ||
+            project.progress >= 0.999,
+        'color': Colors.greenAccent,
+      },
+      {
+        'title': 'In Progress',
+        'filter': (Project project) =>
+            project.status != ProjectStatus.completed &&
+            project.progress < 0.999,
+        'color': Colors.orangeAccent,
+      },
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: columns.map((column) {
+          final filter = column['filter'] as bool Function(Project);
+          final columnProjects = _filteredProjects
+              .where((project) => filter(project))
+              .toList();
+          return Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: _buildProjectKanbanColumn(
+              title: column['title'] as String,
+              accentColor: column['color'] as Color,
+              projects: columnProjects,
+              columnWidth: columnWidth,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildProjectKanbanColumn({
+    required String title,
+    required Color accentColor,
+    required List<Project> projects,
+    required double columnWidth,
+  }) {
+    return Container(
+      width: columnWidth,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: DarkThemeColors.border.withOpacity(0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${projects.length}',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: accentColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (projects.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: DarkThemeColors.border.withOpacity(0.8),
+                ),
+                color: Colors.black,
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.inbox_outlined,
+                    color: DarkThemeColors.textSecondary.withOpacity(0.7),
+                    size: 24,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No projects',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: DarkThemeColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: projects.map((project) {
+                  final projectIndex = _projects.indexWhere(
+                    (p) => p.id == project.id,
+                  );
+                  final cardWidth = (columnWidth - 24).clamp(240.0, 360.0);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: SizedBox(
+                      width: cardWidth,
+                      child: ProjectCard(
+                        title: project.title,
+                        description: project.description,
+                        deadline: project.deadline,
+                        progress: project.progress,
+                        cardColor: project.cardColor,
+                        category: project.category,
+                        priority: project.priority,
+                        projectId: project.id,
+                        onTap: () => _openProjectDetails(
+                          project,
+                          initialIndex: projectIndex != -1
+                              ? projectIndex
+                              : null,
+                        ),
+                        onMorePressed: projectIndex == -1 || _isLoading
+                            ? null
+                            : () => _showProjectActionsSheet(
+                                project,
+                                projectIndex,
+                              ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

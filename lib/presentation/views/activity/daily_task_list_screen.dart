@@ -3,21 +3,29 @@ import 'package:dev_flow/core/constants/app_colors.dart';
 import 'package:dev_flow/data/models/task_model.dart';
 import 'package:dev_flow/data/repositories/task_repository.dart';
 import 'package:dev_flow/presentation/widgets/task_item.dart';
+import 'package:dev_flow/presentation/widgets/animated_fade_slide.dart';
 import 'package:dev_flow/presentation/dialogs/add_quick_todo_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart'; // This line was already present
 import 'daily_task_detail_screen.dart';
+import 'package:dev_flow/services/time_tracker_service.dart';
 
 class DailyTaskListScreen extends StatefulWidget {
   final bool isCompleted;
   final String title;
   final Color color;
+  final bool includeProjectTasks;
+  final bool showTaskSource;
+  final Map<String, String> projectNames;
 
   const DailyTaskListScreen({
     super.key,
     required this.isCompleted,
     required this.title,
     required this.color,
+    this.includeProjectTasks = false,
+    this.showTaskSource = false,
+    this.projectNames = const {},
   });
 
   @override
@@ -26,13 +34,24 @@ class DailyTaskListScreen extends StatefulWidget {
 
 class _DailyTaskListScreenState extends State<DailyTaskListScreen> {
   final TaskRepository _taskRepository = TaskRepository();
+  final _timeTracker = TimeTrackerService();
   List<Task> _tasks = [];
   bool _isLoading = true;
+  String _timerDuration = '';
 
   @override
   void initState() {
     super.initState();
     _loadTasks();
+    _timeTracker.timerStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _timerDuration = _timeTracker.formatDuration(
+            _timeTracker.elapsedSeconds,
+          );
+        });
+      }
+    });
   }
 
   Future<void> _loadTasks() async {
@@ -41,7 +60,7 @@ class _DailyTaskListScreenState extends State<DailyTaskListScreen> {
       if (userId != null) {
         final allTasks = await _taskRepository.getTasks(
           userId,
-          projectId: null,
+          onlyQuickTodos: !widget.includeProjectTasks,
         );
         final filteredTasks = allTasks
             .where((task) => task.completed == widget.isCompleted)
@@ -294,28 +313,50 @@ class _DailyTaskListScreenState extends State<DailyTaskListScreen> {
                       itemCount: _tasks.length,
                       itemBuilder: (context, index) {
                         final task = _tasks[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: TaskItem(
-                            title: task.title,
-                            subtitle: 'Quick Todo',
-                            date: _formatDate(task.date),
-                            time: task.time,
-                            isCompleted: task.completed,
-                            onTap: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      DailyTaskDetailScreen(task: task),
-                                ),
-                              );
-                              // Reload tasks if task was updated
-                              if (result == true) {
-                                _loadTasks();
-                              }
-                            },
-                            onCheckboxTap: () => _toggleTaskCompletion(task),
+                        return AnimatedFadeSlide(
+                          delay: index * 0.05,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: TaskItem(
+                              title: task.title,
+                              subtitle: _buildSubtitle(task),
+                              date: _formatDate(task.date),
+                              time: task.time,
+                              isCompleted: task.completed,
+                              onTap: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        DailyTaskDetailScreen(task: task),
+                                  ),
+                                );
+                                // Reload tasks if task was updated
+                                if (result == true) {
+                                  _loadTasks();
+                                }
+                              },
+                              onCheckboxTap: () => _toggleTaskCompletion(task),
+                              onTimerTap: () async {
+                                final isThisTaskActive =
+                                    _timeTracker.activeEntry?.taskId == task.id;
+                                if (isThisTaskActive) {
+                                  await _timeTracker.stopTracking();
+                                } else {
+                                  await _timeTracker.startTracking(
+                                    taskId: task.id,
+                                    projectId: task.projectId,
+                                  );
+                                }
+                                setState(() {});
+                              },
+                              isTimerActive:
+                                  _timeTracker.activeEntry?.taskId == task.id,
+                              timerDuration:
+                                  _timeTracker.activeEntry?.taskId == task.id
+                                  ? _timerDuration
+                                  : null,
+                            ),
                           ),
                         );
                       },
@@ -325,5 +366,18 @@ class _DailyTaskListScreenState extends State<DailyTaskListScreen> {
         ),
       ),
     );
+  }
+
+  String _buildSubtitle(Task task) {
+    if (!widget.showTaskSource) {
+      return task.projectId == null ? 'Quick Todo' : 'Project Task';
+    }
+
+    if (task.projectId != null) {
+      final projectName = widget.projectNames[task.projectId] ?? 'Project';
+      return 'Project · $projectName';
+    }
+
+    return 'Quick Todo';
   }
 }
