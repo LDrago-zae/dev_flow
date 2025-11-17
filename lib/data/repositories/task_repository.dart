@@ -6,12 +6,16 @@ import '../models/comment_model.dart';
 class TaskRepository {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  Future<List<Task>> getTasks(String userId, {String? projectId}) async {
+  Future<List<Task>> getTasks(
+    String userId, {
+    String? projectId,
+    bool onlyQuickTodos = true,
+  }) async {
     var query = _supabase.from('tasks').select('*').eq('owner_id', userId);
     if (projectId != null) {
       query = query.eq('project_id', projectId);
-    } else {
-      query = query.filter('project_id', 'is', null); // Quick todos
+    } else if (onlyQuickTodos) {
+      query = query.filter('project_id', 'is', null); // Quick todos only
     }
     final response = await query.order('date', ascending: true);
     return await Future.wait(

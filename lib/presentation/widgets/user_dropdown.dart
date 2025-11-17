@@ -90,23 +90,28 @@ class _UserDropdownState extends State<UserDropdown> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: DarkThemeColors.border, width: 1),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           value: widget.selectedUserId,
           hint: Row(
             children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: DarkThemeColors.surface,
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: DarkThemeColors.primary100.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(
-                  Icons.person_add,
-                  color: DarkThemeColors.textSecondary,
-                  size: 14,
+                  Icons.person_add_outlined,
+                  color: DarkThemeColors.primary100,
+                  size: 18,
                 ),
               ),
               const SizedBox(width: 12),
@@ -114,75 +119,103 @@ class _UserDropdownState extends State<UserDropdown> {
                 widget.hintText,
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: DarkThemeColors.textSecondary,
+                  fontSize: 14,
                 ),
               ),
             ],
           ),
           icon: Icon(
-            Icons.arrow_drop_down,
+            Icons.keyboard_arrow_down_rounded,
             color: DarkThemeColors.textSecondary,
+            size: 24,
           ),
           isExpanded: true,
-          dropdownColor: DarkThemeColors.surface,
+          dropdownColor: const Color(0xFF0A0A0A),
+          itemHeight: null,
+          menuMaxHeight: 360,
+          elevation: 8,
+          borderRadius: BorderRadius.circular(12),
           items: [
             if (widget.showClearOption)
               DropdownMenuItem<String?>(
                 value: null,
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: DarkThemeColors.surface,
-                      child: Icon(
-                        Icons.clear,
-                        color: DarkThemeColors.textSecondary,
-                        size: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: DarkThemeColors.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: DarkThemeColors.border,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.person_off_outlined,
+                          color: DarkThemeColors.textSecondary,
+                          size: 16,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Unassigned',
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: DarkThemeColors.textPrimary,
+                      const SizedBox(width: 12),
+                      Text(
+                        'Unassigned',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: DarkThemeColors.textSecondary,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ..._users.map((user) {
               return DropdownMenuItem<String?>(
                 value: user.id,
-                child: Row(
-                  children: [
-                    UserAvatar(user: user, radius: 12),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            user.name,
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: DarkThemeColors.textPrimary,
-                              fontWeight: FontWeight.w500,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      UserAvatar(user: user, radius: 16),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              user.name,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: DarkThemeColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            user.email,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: DarkThemeColors.textSecondary,
+                            Text(
+                              user.email,
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: DarkThemeColors.textSecondary,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             }),
@@ -219,15 +252,32 @@ class _UserDropdownState extends State<UserDropdown> {
                   value: user.id,
                   child: Row(
                     children: [
-                      UserAvatar(user: selectedUser, radius: 12),
+                      UserAvatar(user: selectedUser, radius: 16),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          selectedUser?.name ?? user.name,
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: DarkThemeColors.textPrimary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              selectedUser?.name ?? user.name,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: DarkThemeColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (selectedUser?.email != null)
+                              Text(
+                                selectedUser!.email,
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: DarkThemeColors.textSecondary,
+                                  fontSize: 11,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
                         ),
                       ),
                     ],
